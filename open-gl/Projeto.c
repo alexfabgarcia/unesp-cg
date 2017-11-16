@@ -89,7 +89,8 @@ void Display() {
 	glLoadIdentity();//"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
 
 	if (projecao==1){
-	glOrtho(-10, 10, -10, 10, -50, 50); //Define a projeção como ortogonal
+		// Projeção ortogonal
+		glOrtho(-10, 10, -10, 10, -50, 50);
 	}
 	else
 	  gluPerspective(60,1,1,150); //Define a projeção como perspectiva
