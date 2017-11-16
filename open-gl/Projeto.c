@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define NUM_OF_SHIPS 4
+#define NUM_OF_SHIPS 2
 #define NUM_OF_WALLS 36
 #define NUM_OF_FLOOR_TILES 34
 
@@ -74,47 +74,47 @@ void Display() {
 	deltaTime = current_call_time - last_call_time;
 	last_call_time = current_call_time;
 	
-   glEnable(GL_DEPTH_TEST);
-   glEnable(GL_LINE_SMOOTH);
-   glEnable(GL_POLYGON_SMOOTH); 
-   glEnable(GL_SMOOTH);
-   glEnable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_POLYGON_SMOOTH); 
+	glEnable(GL_SMOOTH);
+	glEnable(GL_BLEND);
    
-   // Inicializa parâmetros de rendering
-    // Define a cor de fundo da janela de visualização como preta
-   glClearColor(0.5, 0.8, 0.9, 0.0); 
+	// Inicializa parâmetros de rendering
+	// Define a cor de fundo da janela de visualização como preta
+	glClearColor(0.5, 0.8, 0.9, 0.0); 
    
-   glMatrixMode(GL_PROJECTION);/*glMatrixMode()- define qual matriz será alterada. SEMPRE defina o tipo de apresentação 
-                              (Ortogonal ou Perspectiva) na matriz PROJECTION.*/
-   glLoadIdentity();//"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
+	glMatrixMode(GL_PROJECTION);/*glMatrixMode()- define qual matriz será alterada. SEMPRE defina o tipo de apresentação 
+	                          (Ortogonal ou Perspectiva) na matriz PROJECTION.*/
+	glLoadIdentity();//"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
 
-   if (projecao==1){
-   	glOrtho(-10, 10, -10, 10, -50, 50); //Define a projeção como ortogonal
-   }
-   else
-      gluPerspective(60,1,1,150); //Define a projeção como perspectiva
+	if (projecao==1){
+	glOrtho(-10, 10, -10, 10, -50, 50); //Define a projeção como ortogonal
+	}
+	else
+	  gluPerspective(60,1,1,150); //Define a projeção como perspectiva
    
-   glMatrixMode(GL_MODELVIEW);/*glMatrixMode()- define qual matriz será alterada. SEMPRE defina a câmera 
-                              (Ortogonal ou Perspectiva) na matriz MODELVIEW (onde o desenho ocorrerá).*/
-   glLoadIdentity(); ////"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
+	glMatrixMode(GL_MODELVIEW);/*glMatrixMode()- define qual matriz será alterada. SEMPRE defina a câmera 
+	                          (Ortogonal ou Perspectiva) na matriz MODELVIEW (onde o desenho ocorrerá).*/
+	glLoadIdentity(); ////"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
 
-   gluLookAt(posx,posy,posz,0,-4,0,lx,ly,lz); //Define a pos da câmera, para onde olha e qual eixo está na vertical.
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); /* "limpa" um buffer particular ou combinações de buffers, 
-                                                         onde buffer é uma área de armazenamento para informações da imagem. 
-                                                        Nesse caso, está "limpando os buffers para suportarem animações */
+	gluLookAt(posx,posy,posz,0,-4,0,lx,ly,lz); //Define a pos da câmera, para onde olha e qual eixo está na vertical.
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); /* "limpa" um buffer particular ou combinações de buffers, 
+	                                                     onde buffer é uma área de armazenamento para informações da imagem. 
+	                                                    Nesse caso, está "limpando os buffers para suportarem animações */
 
-   //S = S0 + V * T
-   deltaPos += player_current_speed * deltaTime;
-   time_counter += deltaTime;
-   printf("%d \n\n", time_counter);
-   
-   //Contador de tempo (segundos)
-   //if(time_counter/1000 >= 10)
-      //DrawShip( -5 ,-32 + deltaPos);
-   
-   //Draw Player
-   DrawPlayer();
-   
+	//S = S0 + V * T
+	deltaPos += player_current_speed * deltaTime;
+	time_counter += deltaTime;
+	//printf("%d \n\n", time_counter);
+
+	//Contador de tempo (segundos)
+	//if(time_counter/1000 >= 10)
+	  //DrawShip( -5 ,-32 + deltaPos);
+
+	//Draw Player
+	DrawPlayer();
+
    //Desenha Navios
    int i;
 	for(i=0; i<NUM_OF_SHIPS; i++) {
@@ -126,6 +126,8 @@ void Display() {
 			ship[i].direcao = 1;
 		}else if(ship[i].x > 4.5) {
 			ship[i].direcao = -1;
+		}else if(paused) {
+			ship[i].direcao = 0;
 		}
 		
 		//Reseta posição do navio após sair da tela
@@ -133,8 +135,14 @@ void Display() {
 			ship[i].z = ship[most_far_ship_index].z - 10;
 			most_far_ship_index = i;
 		}
+		
+		//Colisão
+		printf("Colisao: %d\n", AABB(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5, oz-0.75, oz+0.75, ship[i].z-0.5, ship[i].z+0.5));
+		//AABB_x(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5)
+		
+		
 	}
-	
+
 	//Desenha Paredes
 	for(i=0; i<NUM_OF_WALLS; i++) {
 		wall_right[i].z += player_current_speed * deltaTime;
@@ -143,14 +151,12 @@ void Display() {
 		DrawWall(wall_left[i].x, wall_left[i].z);
 		//Reseta posição da parede após sair da tela
 		if(wall_right[i].z >= 16){
-			wall_right[i].z = wall_right[most_far_wall_index].z-4;
-			wall_left[i].z = wall_right[most_far_wall_index].z-4;
+			wall_right[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
+			wall_left[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
 			most_far_wall_index = i;
-			//wall_right[i].z = (-4*NUM_OF_WALLS)+16;
-			//wall_left[i].z = (-4*NUM_OF_WALLS)+16;
 		}
 	}
-	
+
 	//Desenha a Água (Chão)
 	for(i=0; i<NUM_OF_FLOOR_TILES; i++) {
 		floor[i].z += player_current_speed * deltaTime;
@@ -161,13 +167,7 @@ void Display() {
 			most_far_floor_tile_index = i;
 		}
 	}
-   
-   //Draw Walls
-   for(i=-12; i<=12; i+=4) {
-		//DrawWall(8,i + deltaPos);
-		//DrawWall(-8,i + deltaPos);
-		//DrawWater(0,i + deltaPos);
-   }
+
    //DrawWall(0, 0 + deltaPos);
    glutSwapBuffers(); //Executa a Cena. SwapBuffers dá suporte para mais de um buffer, permitindo execução de animações sem cintilações. 
 }
@@ -180,7 +180,7 @@ void DrawPlayer() {
 		glScalef(1,1,-1.4);
 		glutSolidCone(.5,1,10,10);
 	glPopMatrix();
-	
+	//Debug
 	if(debug_mode) {
 		glPushMatrix();
 		glColor3ub(255, 0, 0);
@@ -196,7 +196,6 @@ void DrawPlayer() {
 		glutSolidCube(1);
 		glPopMatrix();
 	}
-	
   	glutPostRedisplay();
 }
 
@@ -230,7 +229,7 @@ void DrawShip(float x, float z) {
 		glScalef(3,1,1);
 		glutSolidCube(1);
 	glPopMatrix();
-	
+	//Debug
 	if(debug_mode) {
 		glPushMatrix();
 		glColor3ub(255, 0, 0);
@@ -246,7 +245,6 @@ void DrawShip(float x, float z) {
 		glutSolidCube(1);
 		glPopMatrix();
 	}
-	
 	glutPostRedisplay();	
 }
 
@@ -256,10 +254,12 @@ void keyboard (unsigned char key, int x, int y) {
 		ox+=1;
 	if (key=='a') 
 		ox-=1;
-	if (key=='w')
-		oy+=1;
-	if(key=='s')
-		oy-=1;
+	if (key=='w'){
+		//oy+=1;
+	}
+	if(key=='s'){
+		//oy-=1;
+	}
 	//Modo da camera
 	if(key=='c')
 		cameraMode = (cameraMode + 1)%2 ;	//0 = normal		1 = top down
@@ -267,12 +267,11 @@ void keyboard (unsigned char key, int x, int y) {
 		player_current_speed *=2;
 	if(key=='q')
 		player_current_speed /=2;
-	if(key=='p')							//Pause
+	//Pause
+	if(key=='p')
 		Pause();
 	if(key==';')
 		debug_mode = !debug_mode;
-		
-	//printf("Camera mode: %d\n", cameraMode);
 		
 	if (cameraMode == 0) {
 		projecao = 0;
@@ -283,25 +282,20 @@ void keyboard (unsigned char key, int x, int y) {
 		posx=0, posy=10, posz=0;
     	lx=0, ly=0,  lz=-1;
 	}
-
 }
 
 int main(int argc,char **argv) {
 	Initializate();
 	
-   glutInit(&argc, argv); // Initializes glut
-    
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); /*Define as características do espaço vetorial. 
-                                                                           //  Nesse caso, permite animações (sem cintilações), cores compostas por Verm. Verde e Azul,
-                                                                           //  Buffer que permite trablhar com profundidade e elimina faces escondidas.*/           
-  
-   glutInitWindowSize(800, 600);
-   glutInitWindowPosition(0, 0);
-   glutCreateWindow("CG - OPENGL - Projeto 1");
-   glutDisplayFunc(Display);
-   glutKeyboardFunc(keyboard);
-   glutMainLoop();
-   return 0; 
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	glutInitWindowSize(800, 600);
+	glutInitWindowPosition(0, 0);
+	glutCreateWindow("CG - OPENGL - Projeto 1");
+	glutDisplayFunc(Display);
+	glutKeyboardFunc(keyboard);
+	glutMainLoop();
+	return 0; 
 }
 
 //Prepara as variáveis utilizadas na execução
@@ -347,7 +341,7 @@ void Pause() {
 	}
 }
 
-//Colisões em x e z
-bool AABB(float A_xmin, float A_zmin, float A_xmax, float A_zmax, float B_xmin, float B_zmin, float B_xmax, float B_zmax) {
+//Colisões em x e z (verifica a intersecção entre os pontos Axy e Bxy)
+bool AABB(float A_xmin, float A_xmax, float B_xmin, float B_xmax, float A_zmin, float A_zmax, float B_zmin, float B_zmax) {
 	return !(A_xmax < B_xmin || A_xmin > B_xmax || A_zmax < B_zmin || A_zmin > B_zmax);
 }
