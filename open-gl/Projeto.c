@@ -5,20 +5,38 @@
 #include <stdio.h>
 #include <time.h>
 
-#define NUM_OF_SHIPS 2
+#define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
 #define NUM_OF_FLOOR_TILES 34
+#define MAX_PROJECTILES_IN_GAME 20
+
+#define ship_largura 3
+#define ship_altura 1
+#define ship_comprimento 1
+
+#define projectile_largura 0.1
+#define projectile_altura 0.1
+#define projectile_comprimento 0.7
 
 //Estruturas de dados que armazenam informações dos objetos do jogo
 struct t_ship{
 	float x;
 	float z;
 	int direcao;
+	bool inGame;
 };
 
 struct t_world_static_object{
 	float x;
 	float z;
+};
+
+struct t_projectile{
+	float x;
+	float y;
+	float z;
+	float lifetime;
+	bool  inGame;
 };
 
 //Navios
@@ -28,6 +46,8 @@ t_world_static_object wall_left[NUM_OF_WALLS];
 t_world_static_object wall_right[NUM_OF_WALLS];
 //Floor
 t_world_static_object floor[NUM_OF_FLOOR_TILES];
+//Projectiles
+t_projectile projectiles[MAX_PROJECTILES_IN_GAME];
 
 //Índice dos objetos mais distântes (Necessárias para o infinite runner)
 int most_far_ship_index;
@@ -38,7 +58,7 @@ int most_far_floor_tile_index;
 int cameraMode = 0;
 int projecao = 0; //Variável Lógica para Definir o Tipo de Projeção (Perspectiva ou Ortogonal)
 int posx = 0,	posy = 0,	posz = 10;		//Variáveis que definem a posição da câmera
-int oy = -9,		ox=0,		oz = 0;         //Variávesis que definem para onde a câmera olha
+int oy = -9,	ox=0,		oz = 0;         //Variávesis que definem para onde a câmera olha
 int lx = 0,		ly=1,		lz = 0;         //Variáveis que definem qual eixo estará na vertical do monitor.
 
 //Controles
@@ -65,8 +85,10 @@ void DrawPlayer();
 void DrawWall(float, float);
 void DrawWater(float, float);
 void DrawShip(float, float);
+void DrawShoot(float, float, float);
 void Pause();
 bool AABB(float, float, float, float, float, float, float, float);
+void Shoot();
 
 void Display() {
 	//Encontrando dt
@@ -80,7 +102,7 @@ void Display() {
 	glEnable(GL_SMOOTH);
 	glEnable(GL_BLEND);
    
-	// Inicializa parâmetros de rendering
+	// Inicializa par�metros de rendering
 	// Define a cor de fundo da janela de visualização como preta
 	glClearColor(0.5, 0.8, 0.9, 0.0); 
    
@@ -89,17 +111,17 @@ void Display() {
 	glLoadIdentity();//"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
 
 	if (projecao==1){
-		// Projeção ortogonal
+		// Proje��o ortogonal
 		glOrtho(-10, 10, -10, 10, -50, 50);
 	}
 	else
-	  gluPerspective(60,1,1,150); //Define a projeção como perspectiva
+	  gluPerspective(60,1,1,150); //Define a proje��o como perspectiva
    
 	glMatrixMode(GL_MODELVIEW);/*glMatrixMode()- define qual matriz será alterada. SEMPRE defina a câmera 
 	                          (Ortogonal ou Perspectiva) na matriz MODELVIEW (onde o desenho ocorrerá).*/
 	glLoadIdentity(); ////"Limpa" ou "transforma" a matriz em identidade, reduzindo possíveis erros.
 
-	gluLookAt(posx,posy,posz,0,-4,0,lx,ly,lz); //Define a pos da câmera, para onde olha e qual eixo está na vertical.
+	gluLookAt(posx,posy,posz,0,-4,0,lx,ly,lz); //Define a pos da c�mera, para onde olha e qual eixo est� na vertical.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); /* "limpa" um buffer particular ou combinações de buffers, 
 	                                                     onde buffer é uma área de armazenamento para informações da imagem. 
 	                                                    Nesse caso, está "limpando os buffers para suportarem animações */
@@ -119,9 +141,7 @@ void Display() {
    //Desenha Navios
    int i;
 	for(i=0; i<NUM_OF_SHIPS; i++) {
-		ship[i].z += player_current_speed * deltaTime;		//S = S0 + V * T
-		DrawShip(ship[i].x, ship[i].z);
-		
+		ship[i].z += player_current_speed * deltaTime;		//S = S0 + V * T	
 		ship[i].x += ship[i].direcao * 0.001 * deltaTime;
 		if(ship[i].x < -4.5) {
 			ship[i].direcao = 1;
@@ -131,17 +151,20 @@ void Display() {
 			ship[i].direcao = 0;
 		}
 		
-		//Reseta posição do navio após sair da tela
+		//Reseta posi��es do navio ap�s sair da tela
 		if(ship[i].z >= 12) {					
 			ship[i].z = ship[most_far_ship_index].z - 10;
+			ship[i].inGame = true;
 			most_far_ship_index = i;
 		}
 		
-		//Colisão
-		printf("Colisao: %d\n", AABB(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5, oz-0.75, oz+0.75, ship[i].z-0.5, ship[i].z+0.5));
-		//AABB_x(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5)
-		
-		
+		if(ship[i].inGame == true) {
+			DrawShip(ship[i].x, ship[i].z);
+			//Colis�o player com navio
+			if(AABB(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5, oz-0.75, oz+0.75, ship[i].z-0.5, ship[i].z+0.5)) {
+				Initializate();
+			}
+		}
 	}
 
 	//Desenha Paredes
@@ -150,7 +173,7 @@ void Display() {
 		wall_left[i].z += player_current_speed * deltaTime;
 		DrawWall(wall_right[i].x, wall_right[i].z);
 		DrawWall(wall_left[i].x, wall_left[i].z);
-		//Reseta posição da parede após sair da tela
+		//Reseta posi��es da parede ap�s sair da tela
 		if(wall_right[i].z >= 16){
 			wall_right[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
 			wall_left[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
@@ -158,18 +181,44 @@ void Display() {
 		}
 	}
 
-	//Desenha a Água (Chão)
+	//Desenha a �gua (Ch�o)
 	for(i=0; i<NUM_OF_FLOOR_TILES; i++) {
 		floor[i].z += player_current_speed * deltaTime;
 		DrawWater(floor[i].x, floor[i].z);
-		//Reseta posição do chão/água após sair da tela
+		//Reseta posi��es do ch�o/�gua ap�s sair da tela
 		if(floor[i].z >= 14) {
 			floor[i].z = floor[most_far_floor_tile_index].z-3.95; //sobreposição de 0.05
 			most_far_floor_tile_index = i;
 		}
 	}
 
-   //DrawWall(0, 0 + deltaPos);
+	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
+		if(projectiles[i].inGame == true) {
+			projectiles[i].z -= player_current_speed * 3 * deltaTime;
+			projectiles[i].lifetime += deltaTime;
+			DrawShoot(projectiles[i].x, projectiles[i].y, projectiles[i].z);
+			//Destr�i proj�til depois de 10 segundos
+			if(projectiles[i].lifetime/1000 >= 10) {
+				projectiles[i].inGame = false;
+			}
+			//Colisao de proj�til com os navios
+			int j;
+			for(j=0; j<NUM_OF_SHIPS; j++) {
+				if(ship[j].inGame == true &&
+					 AABB(projectiles[i].x-((float)projectile_largura/2), 			projectiles[i].x+((float)projectile_largura/2), 
+						ship[j].x-((float)ship_largura/2), 							ship[j].x+((float)ship_largura/2),
+						projectiles[i].z-((float)projectile_comprimento/2), 		projectiles[i].z+((float)projectile_comprimento/2),
+						ship[j].z-((float)ship_comprimento/2), 						ship[j].z+((float)ship_comprimento/2))) {
+					//destroi proj�til
+					projectiles[i].inGame = false;
+					//destroi navio
+					ship[j].inGame = false;
+					break;
+				}
+			}
+		}
+	}
+
    glutSwapBuffers(); //Executa a Cena. SwapBuffers dá suporte para mais de um buffer, permitindo execução de animações sem cintilações. 
 }
 
@@ -184,17 +233,17 @@ void DrawPlayer() {
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-		glColor3ub(255, 0, 0);
-		glTranslated(ox-0.5,oy,0.75);
-		glScalef(0.2,0.2,0.2);
-		glutSolidCube(1);
+			glColor3ub(255, 0, 0);
+			glTranslated(ox-0.5,oy,0.75);
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-		glColor3ub(255, 0, 0);
-		glTranslated(ox+0.5,oy,-0.75);
-		glScalef(0.2,0.2,0.2);
-		glutSolidCube(1);
+			glColor3ub(255, 0, 0);
+			glTranslated(ox+0.5,oy,-0.75);
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
 		glPopMatrix();
 	}
   	glutPostRedisplay();
@@ -211,7 +260,7 @@ void DrawWall(float x,float z) {
 	glutPostRedisplay();
 }
 
-//Água
+//�gua
 void DrawWater(float x,float z) {
 	glPushMatrix();
 		glColor3ub(color_water[0], color_water[1], color_water[2]);
@@ -227,26 +276,52 @@ void DrawShip(float x, float z) {
 	glPushMatrix();
 		glColor3ub(255, 255, 255);
 		glTranslated(x,-9.7,z);
-		glScalef(3,1,1);
+		glScalef(ship_largura, ship_altura, ship_comprimento);
 		glutSolidCube(1);
 	glPopMatrix();
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-		glColor3ub(255, 0, 0);
-		glTranslated(x-1.5,-9.7+0.5,z+0.5);
-		glScalef(0.2,0.2,0.2);
-		glutSolidCube(1);
+			glColor3ub(255, 0, 0);
+			glTranslated(x-((float)ship_largura/2), -9.7+((float)ship_altura/2), z+((float)ship_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-		glColor3ub(255, 0, 0);
-		glTranslated(x+1.5,-9.7+0.5,z-0.5);
-		glScalef(0.2,0.2,0.2);
-		glutSolidCube(1);
+			glColor3ub(255, 0, 0);
+			glTranslated(x+((float)ship_largura/2), -9.7+((float)ship_altura/2), z-((float)ship_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
 		glPopMatrix();
 	}
 	glutPostRedisplay();	
+}
+
+//DrawShoot
+void DrawShoot(float x, float y, float z) {
+	glPushMatrix();
+		glColor3ub(77, 77, 77);
+		glTranslated(x,y,z);
+		glScalef(projectile_largura,projectile_altura,projectile_comprimento);
+		glutSolidCube(1);
+	glPopMatrix();
+	//Debug
+	if(debug_mode) {
+		glPushMatrix();
+			glColor3ub(255, 0, 0);
+			glTranslated(x-((float)projectile_largura/2),y,z+((float)projectile_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+		
+		glPushMatrix();
+			glColor3ub(255, 0, 0);
+			glTranslated(x+((float)projectile_largura/2),y,z-((float)projectile_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
 }
 
 void keyboard (unsigned char key, int x, int y) {
@@ -271,8 +346,12 @@ void keyboard (unsigned char key, int x, int y) {
 	//Pause
 	if(key=='p')
 		Pause();
+	//Debug Mode
 	if(key==';')
 		debug_mode = !debug_mode;
+	//Atirar
+	if(key==' ')
+		Shoot();
 		
 	if (cameraMode == 0) {
 		projecao = 0;
@@ -306,19 +385,20 @@ void Initializate() {
 	int i;
 	//Navios
 	for(i=0; i<NUM_OF_SHIPS; i++) {
-		//Inicializa posição dos navios
+		//Inicializa posi��es dos navios
 		ship[i].x = rand()% 10 - 5;
 		ship[i].z = -i*10;
 		ship[i].direcao = (rand() % 2 - 1 >= 0) ? 1:-1;
+		ship[i].inGame = true;
 	}
 	most_far_ship_index = NUM_OF_SHIPS-1;
 	
 	//Walls
 	for(i=0; i<NUM_OF_WALLS; i++) {
-		//Inicializa posição das paredes da direita
+		//Inicializa posiçposi��es�o das paredes da direita
 		wall_right[i].x = 8;
 		wall_right[i].z = (-i*4)+16;
-		//Inicializa posição das paredes da esquerda
+		//Inicializa posi��es�ão das paredes da esquerda
 		wall_left[i].x = -8;
 		wall_left[i].z = (-i*4)+16;
 	}
@@ -326,11 +406,19 @@ void Initializate() {
 	
 	//Floor
 	for(i=0; i<NUM_OF_FLOOR_TILES; i++) {
-		//Inicializa posição dos tiles de água no chão
+		//Inicializa posi��es dos tiles de �gua no ch�o
 		floor[i].x = 0;
 		floor[i].z = (-i*4)+14;
 	}
 	most_far_floor_tile_index = NUM_OF_FLOOR_TILES-1;
+	
+	//Projectiles
+	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
+		projectiles[i].x = ox;
+		projectiles[i].y = oy;
+		projectiles[i].z = oz;
+		projectiles[i].inGame = false;
+	}
 }
 
 void Pause() {
@@ -342,7 +430,22 @@ void Pause() {
 	}
 }
 
-//Colisões em x e z (verifica a intersecção entre os pontos Axy e Bxy)
+//Colis�ees em x e z (verifica a intersec�o entre os pontos Axy e Bxy)
 bool AABB(float A_xmin, float A_xmax, float B_xmin, float B_xmax, float A_zmin, float A_zmax, float B_zmin, float B_zmax) {
 	return !(A_xmax < B_xmin || A_xmin > B_xmax || A_zmax < B_zmin || A_zmin > B_zmax);
+}
+
+void Shoot() {
+	int i;
+	//Encontra proj�til dispon�vel para entrar no jogo
+	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
+		if(projectiles[i].inGame == false) {
+			projectiles[i].x = ox;
+			projectiles[i].y = -9;
+			projectiles[i].z = oz;
+			projectiles[i].lifetime = 0;
+			projectiles[i].inGame = true;
+			break;
+		}
+	}
 }
