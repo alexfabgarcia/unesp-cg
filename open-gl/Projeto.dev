@@ -1,7 +1,7 @@
 [Project]
 FileName=Projeto.dev
 Name=Projeto1
-UnitCount=1
+UnitCount=4
 Type=1
 Ver=2
 ObjFiles=
@@ -12,7 +12,7 @@ ResourceIncludes=
 MakeIncludes=
 Compiler=
 CppCompiler=
-Linker=-lopengl32 -lglut32 -lglu32_@@_
+Linker=-lopengl32 -lglut32 -lglu32 -lwinmm_@@_
 IsCpp=1
 Icon=
 ExeOutput=
@@ -59,4 +59,34 @@ ProductName=
 ProductVersion=
 AutoIncBuildNr=0
 SyncProduct=0
+
+[Unit2]
+FileName=fuel.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit3]
+FileName=score.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit4]
+FileName=song.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
 
