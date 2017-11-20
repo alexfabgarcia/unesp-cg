@@ -411,10 +411,16 @@ void DrawFuel() {
     DrawText("F", WINDOW_WIDTH - 50, 40); // Full
     
     DrawText("1/2", WINDOW_WIDTH - 105, 80); // Metade do combustivel
+    
+    if (isFuelCritical()) {
+    	glColor3ub(255, 255, 0);
+    	DrawText("Critico!", WINDOW_WIDTH - 65, 10); // Full
+	}
 }
 
 void DrawScore() {
-	
+    glColor3ub(255, 255, 255);
+    
 	DrawText("Score:", 5, 25);
 	
 	// snprintf tells you length if you call it with NULL, 0 as first parameters
