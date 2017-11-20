@@ -4,11 +4,15 @@
 #include <GL/gl.h>
 #include <stdio.h>
 #include <time.h>
+#include <windows.h>
+#include <mmsystem.h>
 #include "score.h"
 #include "fuel.h"
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
+#define SHOT_SOUND "sound\\shot.wav"
+#define GAME_OVER_SOUND "sound\\game-over.wav"
 
 #define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
@@ -99,6 +103,7 @@ void Pause();
 bool AABB(float, float, float, float, float, float, float, float);
 void Shoot();
 void Draw2DInfo();
+bool isGameOver();
 
 void DrawText(const char *text, int x, int y) {
 	int length = strlen(text);
@@ -243,13 +248,14 @@ void Display() {
 		}
 	}
 	
-	if (isFuelEmpty()) {
+	Draw2DInfo();
+	decreaseFuel(time_counter);
+	
+	if (isGameOver()) {
+		playSoundStoppingOthers(GAME_OVER_SOUND);
 		Initializate();
 	}
 	
-	Draw2DInfo();
-	decreaseFuel(time_counter);
-
    glutSwapBuffers(); //Executa a Cena. SwapBuffers dá suporte para mais de um buffer, permitindo execução de animações sem cintilações. 
 }
 
@@ -473,6 +479,10 @@ void keyboard (unsigned char key, int x, int y) {
 	}
 }
 
+bool isGameOver() {
+	return isFuelEmpty(); // Adicionar demais condicoes com OR (||)
+}
+	
 int main(int argc,char **argv) {
 	Initializate();
 	
@@ -560,4 +570,5 @@ void Shoot() {
 			break;
 		}
 	}
+	playSoundStoppingOthers(SHOT_SOUND);
 }

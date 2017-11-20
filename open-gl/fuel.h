@@ -1,11 +1,10 @@
-#include <windows.h>
-#include <mmsystem.h>
+#include "song.h"
 
 #define FUEL_FULL 100
 #define ONE_SECOND_IN_MILLI 1000
 #define DECREASE_FACTOR_PER_SECOND 4
 #define FUEL_CRITICAL_LEVEL 20
-#define FUEL_CRITIVAL_SOUND "sound\\Alarm04.wav"
+#define FUEL_CRITIVAL_SOUND "sound\\fuel-critical.wav"
 
 int fuel = FUEL_FULL;
 long time_fuel;
@@ -37,6 +36,6 @@ void decreaseFuel(long time_counter) {
 
 	if (isFuelCritical() && !fuelAlertPlaying) {
 		fuelAlertPlaying = true;
-		PlaySound(FUEL_CRITIVAL_SOUND, NULL, SND_ASYNC|SND_FILENAME);
+		playSoundStoppingOthers(FUEL_CRITIVAL_SOUND);
 	}
 }
