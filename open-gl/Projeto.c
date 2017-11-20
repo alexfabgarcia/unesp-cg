@@ -4,6 +4,11 @@
 #include <GL/gl.h>
 #include <stdio.h>
 #include <time.h>
+#include "score.h"
+#include "fuel.h"
+
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 600
 
 #define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
@@ -77,7 +82,9 @@ long time_counter = 0;									//Em milisegundos
 //Espaço
 float deltaPos = 0;
 
-//Protótipos das Funções
+//
+
+//Prototipos das Funcoes
 void Initializate();
 void Display();
 void keyboard (unsigned char key, int x, int y);
@@ -86,13 +93,25 @@ void DrawWall(float, float);
 void DrawWater(float, float);
 void DrawShip(float, float);
 void DrawShoot(float, float, float);
+void DrawFuel();
+void DrawScore();
 void Pause();
 bool AABB(float, float, float, float, float, float, float, float);
 void Shoot();
+void Draw2DInfo();
+
+void DrawText(const char *text, int x, int y) {
+	int length = strlen(text);
+	
+    glRasterPos2i(x,y);
+    
+    for ( int i = 0 ; i < length ; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, (int)text[i]);
+}
 
 void Display() {
 	//Encontrando dt
-	current_call_time = clock()/ (CLOCKS_PER_SEC / 1000);;
+	current_call_time = clock()/ (CLOCKS_PER_SEC / 1000);
 	deltaTime = current_call_time - last_call_time;
 	last_call_time = current_call_time;
 	
@@ -137,6 +156,7 @@ void Display() {
 
 	//Draw Player
 	DrawPlayer();
+	
 
    //Desenha Navios
    int i;
@@ -213,11 +233,22 @@ void Display() {
 					projectiles[i].inGame = false;
 					//destroi navio
 					ship[j].inGame = false;
+					
+					// Abate o navio
+					shootDownShip();
+					
 					break;
 				}
 			}
 		}
 	}
+	
+	if (isFuelEmpty()) {
+		Initializate();
+	}
+	
+	Draw2DInfo();
+	decreaseFuel(time_counter);
 
    glutSwapBuffers(); //Executa a Cena. SwapBuffers dá suporte para mais de um buffer, permitindo execução de animações sem cintilações. 
 }
@@ -324,6 +355,78 @@ void DrawShoot(float x, float y, float z) {
 	}
 }
 
+void Draw2DInfo() {
+	glMatrixMode(GL_PROJECTION);
+    double *matrix = new double[16];
+    glGetDoublev(GL_PROJECTION_MATRIX, matrix);
+    glLoadIdentity();
+	glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -5, 5);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glPushMatrix();
+    glLoadIdentity();
+    
+    // Colocar toda informacao 2D neste ponto (pontuacao, combustivel, etc.)
+    DrawFuel();
+    DrawScore();
+    
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixd(matrix);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+// Draw Fuel
+void DrawFuel() {
+	// O angulo vai de -50 (100% de combust�vel) at� 50 (0% de combust�vel)
+    double angle = -(fuel - 50);
+    
+    glPushMatrix(); /* save current transformation state on stack */
+    
+	    glTranslated(WINDOW_WIDTH - 95, 20, 1);
+		glRotated(angle, 0, 0, 1);
+		
+		glColor3ub(255, 0, 0);
+		glBegin(GL_POLYGON);
+			glVertex2i(-3, 0);
+			glVertex2i(3, 0);
+			glVertex2i(2, 80);
+			glVertex2i(2, 80);
+		glEnd();
+		
+		glColor3ub(0, 0, 0);
+		glBegin(GL_POLYGON);
+			glVertex2i(-15, 0);
+			glVertex2i(0, 15);
+			glVertex2i(15, 0);
+			glVertex2i(0, -15);
+		glEnd();
+	
+	glPopMatrix(); /* reset to previous transformation state */
+	
+	glColor3ub(255, 0, 0);
+    DrawText("E", WINDOW_WIDTH - 150, 40); // Empty
+	
+    glColor3ub(255, 255, 255);
+    DrawText("F", WINDOW_WIDTH - 50, 40); // Full
+    
+    DrawText("1/2", WINDOW_WIDTH - 105, 80); // Metade do combustivel
+}
+
+void DrawScore() {
+	
+	DrawText("Score:", 5, 25);
+	
+	// snprintf tells you length if you call it with NULL, 0 as first parameters
+	int length = snprintf(NULL, 0, "%ld", playerScore) + 1;
+	char* score = (char*) malloc(length * sizeof(char));
+	snprintf(score, length, "%ld", playerScore);
+	
+	DrawText(score, 5, 5);
+	
+	free(score);
+}
+
 void keyboard (unsigned char key, int x, int y) {
 	//Movimento da nave
 	if (key=='d')
@@ -369,7 +472,7 @@ int main(int argc,char **argv) {
 	
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowSize(800, 600);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("CG - OPENGL - Projeto 1");
 	glutDisplayFunc(Display);
@@ -419,6 +522,9 @@ void Initializate() {
 		projectiles[i].z = oz;
 		projectiles[i].inGame = false;
 	}
+	
+	resetPlayerScore();
+	resetFuel(time_counter);
 }
 
 void Pause() {
