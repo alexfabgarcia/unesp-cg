@@ -24,11 +24,16 @@ bool isFuelCritical() {
 	return fuel <= FUEL_CRITICAL_LEVEL;
 }
 
-void increaseFuel() {
-	fuel += 0.01;
+void increaseFuel(long time_counter) {
+	if (fuel < FUEL_FULL) {
+		time_fuel += 20;	
+	} else {
+		time_fuel = time_counter;
+	}
 	if (!isFuelCritical()) {
 		fuelAlertPlaying = false;
 	}
+	printf("Abastecendo Combustivel: %d\n", fuel);
 }
 
 void decreaseFuel(long time_counter) {

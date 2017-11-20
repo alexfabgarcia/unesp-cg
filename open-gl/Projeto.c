@@ -4,8 +4,6 @@
 #include <GL/gl.h>
 #include <stdio.h>
 #include <time.h>
-#include <windows.h>
-#include <mmsystem.h>
 #include "score.h"
 #include "fuel.h"
 
@@ -16,6 +14,7 @@
 
 #define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
+#define NUM_OF_FUEL_STATIONS 4
 #define NUM_OF_FLOOR_TILES 34
 #define MAX_PROJECTILES_IN_GAME 20
 
@@ -23,15 +22,25 @@
 #define ship_altura 1
 #define ship_comprimento 1
 
+#define fuel_station_largura 1
+#define fuel_station_altura 1
+#define fuel_station_comprimento 4
+
 #define projectile_largura 0.1
 #define projectile_altura 0.1
 #define projectile_comprimento 0.7
 
-//Estruturas de dados que armazenam informações dos objetos do jogo
+//Estruturas de dados que armazenam informacoes dos objetos do jogo
 struct t_ship{
 	float x;
 	float z;
 	int direcao;
+	bool inGame;
+};
+
+struct t_fuel_station{
+	float x;
+	float z;
 	bool inGame;
 };
 
@@ -57,11 +66,14 @@ t_world_static_object wall_right[NUM_OF_WALLS];
 t_world_static_object floor[NUM_OF_FLOOR_TILES];
 //Projectiles
 t_projectile projectiles[MAX_PROJECTILES_IN_GAME];
+// Estacoes de abastecimento
+t_fuel_station fuel_station[NUM_OF_FUEL_STATIONS];
 
 //Índice dos objetos mais distântes (Necessárias para o infinite runner)
 int most_far_ship_index;
 int most_far_wall_index;
 int most_far_floor_tile_index;
+int most_far_fuel_station;
 
 //Camera
 int cameraMode = 0;
@@ -97,13 +109,15 @@ void DrawWall(float, float);
 void DrawWater(float, float);
 void DrawShip(float, float);
 void DrawShoot(float, float, float);
-void DrawFuel();
+void DrawFuelStation(float, float);
+void DrawFuelGauge();
 void DrawScore();
 void Pause();
 bool AABB(float, float, float, float, float, float, float, float);
 void Shoot();
 void Draw2DInfo();
 bool isGameOver();
+void doBeforeGameOver();
 
 void DrawText(const char *text, int x, int y) {
 	int length = strlen(text);
@@ -162,7 +176,6 @@ void Display() {
 	//Draw Player
 	DrawPlayer();
 	
-
    //Desenha Navios
    int i;
 	for(i=0; i<NUM_OF_SHIPS; i++) {
@@ -187,7 +200,7 @@ void Display() {
 			DrawShip(ship[i].x, ship[i].z);
 			//Colis�o player com navio
 			if(AABB(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5, oz-0.75, oz+0.75, ship[i].z-0.5, ship[i].z+0.5)) {
-				Initializate();
+				doBeforeGameOver();
 			}
 		}
 	}
@@ -214,6 +227,27 @@ void Display() {
 		if(floor[i].z >= 14) {
 			floor[i].z = floor[most_far_floor_tile_index].z-3.95; //sobreposição de 0.05
 			most_far_floor_tile_index = i;
+		}
+	}
+	
+	// Desenha estacoes de abastecimento
+	for(i=0; i<NUM_OF_FUEL_STATIONS; i++) {
+		fuel_station[i].z += player_current_speed * deltaTime;		//S = S0 + V * T
+		
+		//Reseta posi��es do navio ap�s sair da tela
+		if(fuel_station[i].z >= 12) {					
+			fuel_station[i].z = ship[most_far_ship_index].z - 10;
+			fuel_station[i].inGame = true;
+			most_far_fuel_station = i;
+		}
+		
+		if(fuel_station[i].inGame == true) {
+			DrawFuelStation(fuel_station[i].x, fuel_station[i].z);
+			
+			// Colisao do player com a estacao de abastecimento
+			if(AABB(ox-0.5, ox+0.5, fuel_station[i].x-0.5, fuel_station[i].x+0.5, oz-0.75, oz+0.75, fuel_station[i].z-2, fuel_station[i].z+2)) {
+				increaseFuel(time_counter);
+			}
 		}
 	}
 
@@ -252,8 +286,7 @@ void Display() {
 	decreaseFuel(time_counter);
 	
 	if (isGameOver()) {
-		playSoundStoppingOthers(GAME_OVER_SOUND);
-		Initializate();
+		doBeforeGameOver();
 	}
 	
    glutSwapBuffers(); //Executa a Cena. SwapBuffers dá suporte para mais de um buffer, permitindo execução de animações sem cintilações. 
@@ -360,6 +393,32 @@ void DrawShoot(float x, float y, float z) {
 		glPopMatrix();
 	}
 }
+//Estacao de Combustivel
+void DrawFuelStation(float x, float z) {
+	glPushMatrix();
+		glColor3ub(255, 0, 0);
+		glTranslated(x,-9.7,z);
+		glScalef(fuel_station_largura, fuel_station_altura, fuel_station_comprimento);
+		glutSolidCube(1);
+	glPopMatrix();
+	//Debug
+	if(debug_mode) {
+		glPushMatrix();
+			glColor3ub(255, 0, 0);
+			glTranslated(x-((float)fuel_station_largura/2), -9.7+((float)fuel_station_altura/2), z+((float)fuel_station_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+		
+		glPushMatrix();
+			glColor3ub(255, 0, 0);
+			glTranslated(x+((float)fuel_station_largura/2), -9.7+((float)fuel_station_altura/2), z-((float)fuel_station_comprimento/2));
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
+	glutPostRedisplay();
+}
 
 void Draw2DInfo() {
 	glMatrixMode(GL_PROJECTION);
@@ -373,17 +432,17 @@ void Draw2DInfo() {
     glLoadIdentity();
     
     // Colocar toda informacao 2D neste ponto (pontuacao, combustivel, etc.)
-    DrawFuel();
+    DrawFuelGauge();
     DrawScore();
-    
+
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixd(matrix);
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Draw Fuel
-void DrawFuel() {
+// Draw Medidor Combustivel
+void DrawFuelGauge() {
 	// O angulo vai de -50 (100% de combust�vel) at� 50 (0% de combust�vel)
     double angle = -(fuel - 50);
     
@@ -406,18 +465,49 @@ void DrawFuel() {
 			glVertex2i(0, 15);
 			glVertex2i(15, 0);
 			glVertex2i(0, -15);
-		glEnd();
-	
+		glEnd();	
 	glPopMatrix(); /* reset to previous transformation state */
 	
 	glColor3ub(255, 0, 0);
+	glPushMatrix();
+		glTranslated(WINDOW_WIDTH - 95, 20, 1);
+		glRotated(50, 0, 0, 1);
+		
+		glBegin(GL_POLYGON);
+			glVertex2i(-2, 25);
+			glVertex2i(2, 25);
+			glVertex2i(2, 40);
+			glVertex2i(-2, 40);
+		glEnd();
+	glPopMatrix();
     DrawText("E", WINDOW_WIDTH - 150, 40); // Empty
 	
-    glColor3ub(255, 255, 255);
+	glColor3ub(255, 255, 255);
+    glPushMatrix();
+		glTranslated(WINDOW_WIDTH - 95, 20, 1);
+		glRotated(-50, 0, 0, 1);
+		
+		glBegin(GL_POLYGON);
+			glVertex2i(-2, 25);
+			glVertex2i(0, 25);
+			glVertex2i(0, 40);
+			glVertex2i(-2, 40);
+		glEnd();
+	glPopMatrix();
     DrawText("F", WINDOW_WIDTH - 50, 40); // Full
     
-    DrawText("1/2", WINDOW_WIDTH - 105, 80); // Metade do combustivel
-    
+    glPushMatrix();
+		glTranslated(WINDOW_WIDTH - 95, 20, 1);
+		
+		glBegin(GL_POLYGON);
+			glVertex2i(-2, 25);
+			glVertex2i(0, 25);
+			glVertex2i(0, 40);
+			glVertex2i(-2, 40);
+		glEnd();
+	glPopMatrix();
+    DrawText("1/2", WINDOW_WIDTH - 108, 80); // Metade do combustivel
+
     if (isFuelCritical()) {
     	glColor3ub(255, 255, 0);
     	DrawText("Critico!", WINDOW_WIDTH - 65, 10); // Full
@@ -482,8 +572,16 @@ void keyboard (unsigned char key, int x, int y) {
 bool isGameOver() {
 	return isFuelEmpty(); // Adicionar demais condicoes com OR (||)
 }
+
+void doBeforeGameOver() {
+	playSoundStoppingOthers(GAME_OVER_SOUND);
+	Initializate();
+}
 	
 int main(int argc,char **argv) {
+	// Adiciona caracteristica de aleatoriedade atrelada com o tempo
+	// srand(time(NULL));
+	
 	Initializate();
 	
 	glutInit(&argc, argv);
@@ -499,6 +597,7 @@ int main(int argc,char **argv) {
 
 //Prepara as variáveis utilizadas na execução
 void Initializate() {
+	
 	//Obtem o momento da primeira chamada (para operar o deltaTime)
 	current_call_time = clock() / (CLOCKS_PER_SEC / 1000);
 	int i;
@@ -538,6 +637,14 @@ void Initializate() {
 		projectiles[i].z = oz;
 		projectiles[i].inGame = false;
 	}
+	
+	//Inicializa posicoes das estacoes de abastecimento
+	for (i=0; i<NUM_OF_FUEL_STATIONS; i++) {	
+		fuel_station[i].x = rand()%10 - 5;
+		fuel_station[i].z = (-i-1)*25;
+		fuel_station[i].inGame = true;
+	}
+	most_far_fuel_station = NUM_OF_FUEL_STATIONS - 1;
 	
 	resetPlayerScore();
 	resetFuel(time_counter);
