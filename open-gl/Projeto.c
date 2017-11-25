@@ -263,7 +263,7 @@ void DrawPlayer() {
 	//Hélice
 	glPushMatrix();
 		glColor3ub(140,140,140);
-		glTranslated(ox,oy+.3,oz-0.8);
+		glTranslated(player.x,player.y+.3,player.z-0.8);
 		glScalef(.2,.2,.1);
 		glutSolidTorus(0.7,1,50,50);
 	glPopMatrix();
@@ -271,19 +271,19 @@ void DrawPlayer() {
 	//Corpo
 	glPushMatrix();
 		glColor3ub(140, 140, 140);
-		glTranslated(ox,oy+.1,oz);
+		glTranslated(player.x,player.y+.1,player.z);
 		glScalef(.15,.15,1.7);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();	//Frente
 		glColor3ub(140, 140, 140);
-		glTranslated(ox,oy+.1,oz-0.2);
+		glTranslated(player.x,player.y+.1,player.z-0.2);
 		glScalef(.2,.2,1);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();	//Frente
 		glColor3ub(140, 140, 140);
-		glTranslated(ox,oy+.1,oz-0.2);
+		glTranslated(player.x,player.y+.1,player.z-0.2);
 		glScalef(.3,.3,.7);
 		glutSolidCube(1);
 	glPopMatrix();
@@ -291,7 +291,7 @@ void DrawPlayer() {
 	//Asas Dianteiras superiores
 	glPushMatrix();
 		glColor3ub(140, 0, 0);
-		glTranslated(ox,oy+.4,oz-0.3);
+		glTranslated(player.x,player.y+.4,player.z-0.3);
 		glScalef(2,.05,.7);
 		glutSolidCube(1);
 	glPopMatrix();
@@ -299,7 +299,7 @@ void DrawPlayer() {
 	//Asas Dianteiras inferiores
 	glPushMatrix();
 		glColor3ub(140, 0, 0);
-		glTranslated(ox,oy-.2,oz-0.3);
+		glTranslated(player.x,player.y-.2,player.z-0.3);
 		glScalef(2,.05,.7);
 		glutSolidCube(1);
 	glPopMatrix();
@@ -307,25 +307,25 @@ void DrawPlayer() {
 	//Hastes asas
 	glPushMatrix();
 		glColor3ub(140, 140, 140);	//frente esquerda
-		glTranslated(ox-0.7,oy+0.1,oz-0.5);
+		glTranslated(player.x-0.7,player.y+0.1,player.z-0.5);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
 		glColor3ub(140, 140, 140);	//frente direita
-		glTranslated(ox+0.7,oy+0.1,oz-0.5);
+		glTranslated(player.x+0.7,player.y+0.1,player.z-0.5);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
 		glColor3ub(140, 140, 140);	//trás direita
-		glTranslated(ox+0.7,oy+0.1,oz);
+		glTranslated(player.x+0.7,player.y+0.1,player.z);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
 		glColor3ub(140, 140, 140);	//trás esquerda
-		glTranslated(ox-0.7,oy+0.1,oz);
+		glTranslated(player.x-0.7,player.y+0.1,player.z);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
@@ -334,7 +334,7 @@ void DrawPlayer() {
 	//Asas Traseiras
 	glPushMatrix();
 		glColor3ub(140, 0, 0);
-		glTranslated(ox,oy+.3,oz+1);
+		glTranslated(player.x,player.y+.3,player.z+1);
 		glScalef(0.5,.05,.3);
 		glutSolidCube(1);
 	glPopMatrix();
