@@ -1,7 +1,7 @@
 [Project]
 FileName=Projeto.dev
 Name=Projeto1
-UnitCount=4
+UnitCount=5
 Type=1
 Ver=2
 ObjFiles=
@@ -89,4 +89,14 @@ Link=1
 Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
+
+[Unit5]
+FileName=global.h
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+CompileCpp=1
 

@@ -4,6 +4,9 @@
 #include <GL/gl.h>
 #include <stdio.h>
 #include <time.h>
+#include "global.h"
+#include "color.h"
+#include "collision.h"
 #include "score.h"
 #include "fuel.h"
 
@@ -11,6 +14,7 @@
 #define WINDOW_HEIGHT 600
 #define SHOT_SOUND "sound\\shot.wav"
 #define GAME_OVER_SOUND "sound\\game-over.wav"
+#define EXPLOSION_SOUND "sound\\explosion.wav"
 
 #define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
@@ -30,44 +34,22 @@
 #define projectile_altura 0.1
 #define projectile_comprimento 0.7
 
-//Estruturas de dados que armazenam informacoes dos objetos do jogo
-struct t_ship{
-	float x;
-	float z;
-	int direcao;
-	bool inGame;
-};
-
-struct t_fuel_station{
-	float x;
-	float z;
-	bool inGame;
-};
-
-struct t_world_static_object{
-	float x;
-	float z;
-};
-
-struct t_projectile{
-	float x;
-	float y;
-	float z;
-	float lifetime;
-	bool  inGame;
-};
-
+// Variaveis globais
+// Armazena identificador da janela para que seja possivel fecha-la posteriormente com a tecla 'ESC'
+int windowId;
+// Player
+t_aabb_object player;
 //Navios
-t_ship ship[NUM_OF_SHIPS];
+t_aabb_object ship[NUM_OF_SHIPS];
 //Walls
-t_world_static_object wall_left[NUM_OF_WALLS];
-t_world_static_object wall_right[NUM_OF_WALLS];
+t_aabb_object wall_left[NUM_OF_WALLS];
+t_aabb_object wall_right[NUM_OF_WALLS];
 //Floor
-t_world_static_object floor[NUM_OF_FLOOR_TILES];
+t_aabb_object floor[NUM_OF_FLOOR_TILES];
 //Projectiles
-t_projectile projectiles[MAX_PROJECTILES_IN_GAME];
+t_aabb_object projectiles[MAX_PROJECTILES_IN_GAME];
 // Estacoes de abastecimento
-t_fuel_station fuel_station[NUM_OF_FUEL_STATIONS];
+t_aabb_object fuel_station[NUM_OF_FUEL_STATIONS];
 
 //Índice dos objetos mais distântes (Necessárias para o infinite runner)
 int most_far_ship_index;
@@ -75,37 +57,17 @@ int most_far_wall_index;
 int most_far_floor_tile_index;
 int most_far_fuel_station;
 
-//Camera
-int cameraMode = 0;
-int projecao = 0; //Variável Lógica para Definir o Tipo de Projeção (Perspectiva ou Ortogonal)
-int posx = 0,	posy = 0,	posz = 10;		//Variáveis que definem a posição da câmera
-int oy = -9,	ox=0,		oz = 0;         //Variávesis que definem para onde a câmera olha
-int lx = 0,		ly=1,		lz = 0;         //Variáveis que definem qual eixo estará na vertical do monitor.
-
-//Controles
-float player_current_speed = 0.001;//0.001
-bool paused = false;
-bool debug_mode = false;
-
 //Cores
-int color_wall[3] = {0, 128, 0};
+int color_wall[3] = {159, 85, 41};
+int color_grass[3] = {0, 128, 0};
 int color_water[3] = {0,0,128};
-
-//Timer
-long deltaTime, current_call_time, last_call_time;		//Calcular o tempo de cada chamada: inspirado no game loop de desenvolvimento de jogos
-long time_counter = 0;									//Em milisegundos
-
-//Espaço
-float deltaPos = 0;
-
-//
 
 //Prototipos das Funcoes
 void Initializate();
 void Display();
 void keyboard (unsigned char key, int x, int y);
 void DrawPlayer();
-void DrawWall(float, float);
+void DrawWall(float, float, bool);
 void DrawWater(float, float);
 void DrawShip(float, float);
 void DrawShoot(float, float, float);
@@ -116,9 +78,10 @@ void Pause();
 bool AABB(float, float, float, float, float, float, float, float);
 void Shoot();
 void Draw2DInfo();
-bool isGameOver();
 void doBeforeGameOver();
+void Sair();
 
+// Desenha o texto na posicao 2D indicada
 void DrawText(const char *text, int x, int y) {
 	int length = strlen(text);
 	
@@ -150,7 +113,7 @@ void Display() {
 
 	if (projecao==1){
 		// Proje��o ortogonal
-		glOrtho(-10, 10, -10, 10, -50, 50);
+		glOrtho(-10, 10, -5, 15, -50, 50);
 	}
 	else
 	  gluPerspective(60,1,1,150); //Define a proje��o como perspectiva
@@ -198,8 +161,9 @@ void Display() {
 		
 		if(ship[i].inGame == true) {
 			DrawShip(ship[i].x, ship[i].z);
+
 			//Colis�o player com navio
-			if(AABB(ox-0.5, ox+0.5, ship[i].x-1.5, ship[i].x+1.5, oz-0.75, oz+0.75, ship[i].z-0.5, ship[i].z+0.5)) {
+			if (hasCollision(player, ship[i])) {
 				doBeforeGameOver();
 			}
 		}
@@ -209,12 +173,12 @@ void Display() {
 	for(i=0; i<NUM_OF_WALLS; i++) {
 		wall_right[i].z += player_current_speed * deltaTime;
 		wall_left[i].z += player_current_speed * deltaTime;
-		DrawWall(wall_right[i].x, wall_right[i].z);
-		DrawWall(wall_left[i].x, wall_left[i].z);
+		DrawWall(wall_right[i].x, wall_right[i].z, false);
+		DrawWall(wall_left[i].x, wall_left[i].z, true);
 		//Reseta posi��es da parede ap�s sair da tela
 		if(wall_right[i].z >= 16){
 			wall_right[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
-			wall_left[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposição de 0.05
+			wall_left[i].z = wall_left[most_far_wall_index].z-3.95;	//sobreposição de 0.05
 			most_far_wall_index = i;
 		}
 	}
@@ -245,8 +209,8 @@ void Display() {
 			DrawFuelStation(fuel_station[i].x, fuel_station[i].z);
 			
 			// Colisao do player com a estacao de abastecimento
-			if(AABB(ox-0.5, ox+0.5, fuel_station[i].x-0.5, fuel_station[i].x+0.5, oz-0.75, oz+0.75, fuel_station[i].z-2, fuel_station[i].z+2)) {
-				increaseFuel(time_counter);
+			if(hasCollision(player, fuel_station[i])) {
+				increaseFuel();
 			}
 		}
 	}
@@ -263,11 +227,7 @@ void Display() {
 			//Colisao de proj�til com os navios
 			int j;
 			for(j=0; j<NUM_OF_SHIPS; j++) {
-				if(ship[j].inGame == true &&
-					 AABB(projectiles[i].x-((float)projectile_largura/2), 			projectiles[i].x+((float)projectile_largura/2), 
-						ship[j].x-((float)ship_largura/2), 							ship[j].x+((float)ship_largura/2),
-						projectiles[i].z-((float)projectile_comprimento/2), 		projectiles[i].z+((float)projectile_comprimento/2),
-						ship[j].z-((float)ship_comprimento/2), 						ship[j].z+((float)ship_comprimento/2))) {
+				if(ship[j].inGame == true && hasCollision(projectiles[i], ship[j])) {
 					//destroi proj�til
 					projectiles[i].inGame = false;
 					//destroi navio
@@ -275,6 +235,7 @@ void Display() {
 					
 					// Abate o navio
 					shootDownShip();
+					playSoundStoppingOthers(EXPLOSION_SOUND);
 					
 					break;
 				}
@@ -283,9 +244,9 @@ void Display() {
 	}
 	
 	Draw2DInfo();
-	decreaseFuel(time_counter);
+	decreaseFuel();
 	
-	if (isGameOver()) {
+	if (!gameOver && isFuelEmpty()) {
 		doBeforeGameOver();
 	}
 	
@@ -295,23 +256,24 @@ void Display() {
 //Jogador
 void DrawPlayer() {
   	glPushMatrix();
-		glColor3ub(255,255,255);
-		glTranslatef(ox,oy,+0.75);
+  		changeColorToWhite();
+		changeColorToWhite();
+		glTranslatef(player.x, player.y, +0.75);
 		glScalef(1,1,-1.4);
 		glutSolidCone(.5,1,10,10);
 	glPopMatrix();
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
-			glTranslated(ox-0.5,oy,0.75);
+			changeColorToRed();
+			glTranslated(player.x - 0.5, player.y, 0.75);
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
-			glTranslated(ox+0.5,oy,-0.75);
+			changeColorToRed();
+			glTranslated(player.x + 0.5, player.y, -0.75);
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
@@ -320,12 +282,20 @@ void DrawPlayer() {
 }
 
 //Parede (Bloco)
-void DrawWall(float x,float z) {
+void DrawWall(float x,float z, bool left) {
+	float x_pos = (left ? 1 : -1) * 0.5;
 	glPushMatrix();
-		glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
 		glTranslatef(x,-5,z);
 		glScalef(4,10,4);
-		glutSolidCube(1);
+		
+		// Desenha parede marrom com topo verde para dar efeito de grama
+		glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
+		DrawSquareXPlane(x_pos, -0.5, .45, 0, 1);
+		glColor3ub(color_grass[0], color_grass[1], color_grass[2]);
+		DrawSquareXPlane(x_pos, 0.44, .5, 0, 1);
+
+		// Desenha grama
+		DrawSquareYPlane(0.5, .5, -0.5, 0, 1);
 	glPopMatrix();
 	glutPostRedisplay();
 }
@@ -335,7 +305,7 @@ void DrawWater(float x,float z) {
 	glPushMatrix();
 		glColor3ub(color_water[0], color_water[1], color_water[2]);
 		glTranslatef(x,-10,z);
-		glScalef(12,.1,4);
+		glScalef(12,.00001,4);
 		glutSolidCube(1);
 	glPopMatrix();
 	glutPostRedisplay();
@@ -344,7 +314,7 @@ void DrawWater(float x,float z) {
 //Barco
 void DrawShip(float x, float z) {
 	glPushMatrix();
-		glColor3ub(255, 255, 255);
+		changeColorToWhite();
 		glTranslated(x,-9.7,z);
 		glScalef(ship_largura, ship_altura, ship_comprimento);
 		glutSolidCube(1);
@@ -352,14 +322,14 @@ void DrawShip(float x, float z) {
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x-((float)ship_largura/2), -9.7+((float)ship_altura/2), z+((float)ship_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x+((float)ship_largura/2), -9.7+((float)ship_altura/2), z-((float)ship_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
@@ -371,7 +341,7 @@ void DrawShip(float x, float z) {
 //DrawShoot
 void DrawShoot(float x, float y, float z) {
 	glPushMatrix();
-		glColor3ub(77, 77, 77);
+		changeColorToYellow();
 		glTranslated(x,y,z);
 		glScalef(projectile_largura,projectile_altura,projectile_comprimento);
 		glutSolidCube(1);
@@ -379,14 +349,14 @@ void DrawShoot(float x, float y, float z) {
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x-((float)projectile_largura/2),y,z+((float)projectile_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x+((float)projectile_largura/2),y,z-((float)projectile_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
@@ -396,7 +366,7 @@ void DrawShoot(float x, float y, float z) {
 //Estacao de Combustivel
 void DrawFuelStation(float x, float z) {
 	glPushMatrix();
-		glColor3ub(255, 0, 0);
+		changeColorToRed();
 		glTranslated(x,-9.7,z);
 		glScalef(fuel_station_largura, fuel_station_altura, fuel_station_comprimento);
 		glutSolidCube(1);
@@ -404,14 +374,14 @@ void DrawFuelStation(float x, float z) {
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x-((float)fuel_station_largura/2), -9.7+((float)fuel_station_altura/2), z+((float)fuel_station_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
-			glColor3ub(255, 0, 0);
+			changeColorToRed();
 			glTranslated(x+((float)fuel_station_largura/2), -9.7+((float)fuel_station_altura/2), z-((float)fuel_station_comprimento/2));
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
@@ -434,7 +404,21 @@ void Draw2DInfo() {
     // Colocar toda informacao 2D neste ponto (pontuacao, combustivel, etc.)
     DrawFuelGauge();
     DrawScore();
-
+	
+	if (gameOver) {
+		changeColorToYellow();
+		DrawText("GAME OVER!", 5, 100);
+		if (isNewRecord()) {
+			DrawText("Novo Recorde!", 5, 80);
+		}
+		DrawText("(R) Reiniciar", 5, 60);
+	} else if (paused) {
+		changeColorToYellow();
+		DrawText("Jogo Pausado!", 5, 100);
+		DrawText("(ESC) Sair", 5, 80);
+		DrawText("(P) Continuar", 5, 60);
+	}
+	
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixd(matrix);
@@ -451,7 +435,7 @@ void DrawFuelGauge() {
 	    glTranslated(WINDOW_WIDTH - 95, 20, 1);
 		glRotated(angle, 0, 0, 1);
 		
-		glColor3ub(255, 0, 0);
+		changeColorToRed();
 		glBegin(GL_POLYGON);
 			glVertex2i(-3, 0);
 			glVertex2i(3, 0);
@@ -459,7 +443,7 @@ void DrawFuelGauge() {
 			glVertex2i(2, 80);
 		glEnd();
 		
-		glColor3ub(0, 0, 0);
+		changeColorToBlack();
 		glBegin(GL_POLYGON);
 			glVertex2i(-15, 0);
 			glVertex2i(0, 15);
@@ -468,7 +452,7 @@ void DrawFuelGauge() {
 		glEnd();	
 	glPopMatrix(); /* reset to previous transformation state */
 	
-	glColor3ub(255, 0, 0);
+	changeColorToRed();
 	glPushMatrix();
 		glTranslated(WINDOW_WIDTH - 95, 20, 1);
 		glRotated(50, 0, 0, 1);
@@ -482,7 +466,7 @@ void DrawFuelGauge() {
 	glPopMatrix();
     DrawText("E", WINDOW_WIDTH - 150, 40); // Empty
 	
-	glColor3ub(255, 255, 255);
+	changeColorToWhite();
     glPushMatrix();
 		glTranslated(WINDOW_WIDTH - 95, 20, 1);
 		glRotated(-50, 0, 0, 1);
@@ -509,13 +493,13 @@ void DrawFuelGauge() {
     DrawText("1/2", WINDOW_WIDTH - 108, 80); // Metade do combustivel
 
     if (isFuelCritical()) {
-    	glColor3ub(255, 255, 0);
+    	changeColorToYellow();
     	DrawText("Critico!", WINDOW_WIDTH - 65, 10); // Full
 	}
 }
 
 void DrawScore() {
-    glColor3ub(255, 255, 255);
+    changeColorToWhite();
     
 	DrawText("Score:", 5, 25);
 	
@@ -529,78 +513,111 @@ void DrawScore() {
 	free(score);
 }
 
-void keyboard (unsigned char key, int x, int y) {
-	//Movimento da nave
-	if (key=='d')
-		ox+=1;
-	if (key=='a') 
-		ox-=1;
-	if (key=='w'){
-		//oy+=1;
-	}
-	if(key=='s'){
-		//oy-=1;
-	}
-	//Modo da camera
-	if(key=='c')
-		cameraMode = (cameraMode + 1)%2 ;	//0 = normal		1 = top down
-	if(key=='e')
-		player_current_speed *=2;
-	if(key=='q')
-		player_current_speed /=2;
-	//Pause
-	if(key=='p')
-		Pause();
-	//Debug Mode
-	if(key==';')
-		debug_mode = !debug_mode;
-	//Atirar
-	if(key==' ')
-		Shoot();
-		
-	if (cameraMode == 0) {
-		projecao = 0;
-    	posx=0, posy=0, posz=10;
-    	lx=0, ly=1,  lz=0;
-	} else if (cameraMode == 1) {
-		projecao = 1;
-		posx=0, posy=10, posz=0;
-    	lx=0, ly=0,  lz=-1;
+void Shoot() {
+	int i;
+	//Encontra proj�til dispon�vel para entrar no jogo
+	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
+		if(projectiles[i].inGame == false) {
+			projectiles[i].x = player.x;
+			projectiles[i].y = -9;
+			projectiles[i].z = player.z;
+			projectiles[i].lifetime = 0;
+			projectiles[i].inGame = true;
+			playSoundStoppingOthers(SHOT_SOUND);
+			break;
+		}
 	}
 }
 
-bool isGameOver() {
-	return isFuelEmpty(); // Adicionar demais condicoes com OR (||)
+void keyboard (unsigned char key, int x, int y) {
+	if (!paused) {
+		//Movimento da nave
+		if (key=='d') {
+			player.x += 0.5;
+		}
+		if (key=='a') {
+			player.x -= 0.5;
+		}
+		if (key=='w'){
+			//player.y+=1;
+		}
+		if(key=='s'){
+			//player.y-=1;
+		}
+		if(key=='e') {
+			speedUp(); // Acelerar
+		}
+		if(key=='q') {
+			slowDown(); // Desacelerar
+		}
+		if(key==' ') {
+			Shoot(); // Atirar
+		}
+	}
+	
+	// Modo da camera
+	if(key=='c') {
+		cameraMode = (cameraMode + 1)%2 ;	//0 = normal		1 = top down
+		if (cameraMode == 0) {
+			projecao = 0;
+	    	posx=0, posy=0, posz=10;
+	    	lx=0, ly=1,  lz=0;
+		} else if (cameraMode == 1) {
+			projecao = 1;
+			posx=0, posy=10, posz=0;
+	    	lx=0, ly=0,  lz=-1;
+		}
+	}
+	
+	if(key==';') {
+		debug_mode = !debug_mode; //Debug Mode
+	}
+	
+	// Controle de pause, reinicio e saida do jogo
+	if (paused && key==27) { // Escape key
+		Sair();
+	} else if (!gameOver && (key=='p' || key==27)) {
+		Pause(); //Pause
+	} else if (gameOver && (key=='r')) {
+		Initializate();
+	}
 }
 
 void doBeforeGameOver() {
+	puts("Chamando doBeforeGameOver...");
+	gameOver = true;
 	playSoundStoppingOthers(GAME_OVER_SOUND);
-	Initializate();
-}
-	
-int main(int argc,char **argv) {
-	// Adiciona caracteristica de aleatoriedade atrelada com o tempo
-	// srand(time(NULL));
-	
-	Initializate();
-	
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutInitWindowPosition(0, 0);
-	glutCreateWindow("CG - OPENGL - Projeto 1");
-	glutDisplayFunc(Display);
-	glutKeyboardFunc(keyboard);
-	glutMainLoop();
-	return 0; 
+	Pause();
+	saveRecordScore();
 }
 
-//Prepara as variáveis utilizadas na execução
+void Pause() {
+	paused = !paused;
+	if (paused) {
+		stopSpeed();
+	} else {
+		resetSpeed();
+	}
+}
+
+void Sair() {
+	glutDestroyWindow (windowId);
+	exit(0);
+}
+
+// Prepara as variaveis utilizadas na execucao
 void Initializate() {
+	gameOver = false;
+	paused = false;
 	
-	//Obtem o momento da primeira chamada (para operar o deltaTime)
-	current_call_time = clock() / (CLOCKS_PER_SEC / 1000);
+	player.y = -9;
+	player.x = 0;
+	player.z = 0;
+	player.width = 1;
+	player.length = 1.5;
+
 	int i;
+
 	//Navios
 	for(i=0; i<NUM_OF_SHIPS; i++) {
 		//Inicializa posi��es dos navios
@@ -608,6 +625,8 @@ void Initializate() {
 		ship[i].z = -i*10;
 		ship[i].direcao = (rand() % 2 - 1 >= 0) ? 1:-1;
 		ship[i].inGame = true;
+		ship[i].width = ship_largura;
+		ship[i].length = ship_comprimento;
 	}
 	most_far_ship_index = NUM_OF_SHIPS-1;
 	
@@ -632,9 +651,9 @@ void Initializate() {
 	
 	//Projectiles
 	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
-		projectiles[i].x = ox;
-		projectiles[i].y = oy;
-		projectiles[i].z = oz;
+		projectiles[i].x = player.x;
+		projectiles[i].y = player.y;
+		projectiles[i].z = player.z;
 		projectiles[i].inGame = false;
 	}
 	
@@ -643,39 +662,29 @@ void Initializate() {
 		fuel_station[i].x = rand()%10 - 5;
 		fuel_station[i].z = (-i-1)*25;
 		fuel_station[i].inGame = true;
+		fuel_station[i].width = fuel_station_largura;
+		fuel_station[i].length = fuel_station_comprimento;
 	}
 	most_far_fuel_station = NUM_OF_FUEL_STATIONS - 1;
 	
+	resetTime();
+	resetSpeed();
 	resetPlayerScore();
-	resetFuel(time_counter);
+	resetFuel();
 }
 
-void Pause() {
-	paused = !paused;
-	if(paused) {
-		player_current_speed = 0;
-	}else {
-		player_current_speed =  0.001;
-	}
-}
-
-//Colis�ees em x e z (verifica a intersec�o entre os pontos Axy e Bxy)
-bool AABB(float A_xmin, float A_xmax, float B_xmin, float B_xmax, float A_zmin, float A_zmax, float B_zmin, float B_zmax) {
-	return !(A_xmax < B_xmin || A_xmin > B_xmax || A_zmax < B_zmin || A_zmin > B_zmax);
-}
-
-void Shoot() {
-	int i;
-	//Encontra proj�til dispon�vel para entrar no jogo
-	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
-		if(projectiles[i].inGame == false) {
-			projectiles[i].x = ox;
-			projectiles[i].y = -9;
-			projectiles[i].z = oz;
-			projectiles[i].lifetime = 0;
-			projectiles[i].inGame = true;
-			break;
-		}
-	}
-	playSoundStoppingOthers(SHOT_SOUND);
+int main(int argc,char **argv) {
+	// Adiciona caracteristica de aleatoriedade atrelada com o tempo
+	// srand(time(NULL));
+	Initializate();
+	
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+	glutInitWindowPosition(0, 0);
+	windowId = glutCreateWindow("CG - OPENGL - Projeto 1");
+	glutDisplayFunc(Display);
+	glutKeyboardFunc(keyboard);
+	glutMainLoop();
+	return 0; 
 }
