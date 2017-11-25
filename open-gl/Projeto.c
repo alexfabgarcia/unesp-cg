@@ -67,6 +67,7 @@ void Initializate();
 void Display();
 void keyboard (unsigned char key, int x, int y);
 void DrawPlayer();
+void DrawBackground();
 void DrawWall(float, float, bool);
 void DrawWater(float, float);
 void DrawShip(float, float);
@@ -102,6 +103,7 @@ void Display() {
 	glEnable(GL_POLYGON_SMOOTH); 
 	glEnable(GL_SMOOTH);
 	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
    
 	// Inicializa par‚metros de rendering
 	// Define a cor de fundo da janela de visualiza√ß√£o como preta
@@ -138,6 +140,8 @@ void Display() {
 
 	//Draw Player
 	DrawPlayer();
+	//Draw Background
+	DrawBackground();
 	
    //Desenha Navios
    int i;
@@ -217,7 +221,7 @@ void Display() {
 
 	for(i=0; i<MAX_PROJECTILES_IN_GAME; i++) {
 		if(projectiles[i].inGame == true) {
-			projectiles[i].z -= player_current_speed * 3 * deltaTime;
+			projectiles[i].z -= 0.04 * deltaTime;
 			projectiles[i].lifetime += deltaTime;
 			DrawShoot(projectiles[i].x, projectiles[i].y, projectiles[i].z);
 			//DestrÛi projÈtil depois de 10 segundos
@@ -255,13 +259,86 @@ void Display() {
 
 //Jogador
 void DrawPlayer() {
-  	glPushMatrix();
-  		changeColorToWhite();
-		changeColorToWhite();
-		glTranslatef(player.x, player.y, +0.75);
-		glScalef(1,1,-1.4);
-		glutSolidCone(.5,1,10,10);
+	
+	//HÈlice
+	glPushMatrix();
+		glColor3ub(140,140,140);
+		glTranslated(ox,oy+.3,oz-0.8);
+		glScalef(.2,.2,.1);
+		glutSolidTorus(0.7,1,50,50);
 	glPopMatrix();
+	
+	//Corpo
+	glPushMatrix();
+		glColor3ub(140, 140, 140);
+		glTranslated(ox,oy+.1,oz);
+		glScalef(.15,.15,1.7);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();	//Frente
+		glColor3ub(140, 140, 140);
+		glTranslated(ox,oy+.1,oz-0.2);
+		glScalef(.2,.2,1);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();	//Frente
+		glColor3ub(140, 140, 140);
+		glTranslated(ox,oy+.1,oz-0.2);
+		glScalef(.3,.3,.7);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	//Asas Dianteiras superiores
+	glPushMatrix();
+		glColor3ub(140, 0, 0);
+		glTranslated(ox,oy+.4,oz-0.3);
+		glScalef(2,.05,.7);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	//Asas Dianteiras inferiores
+	glPushMatrix();
+		glColor3ub(140, 0, 0);
+		glTranslated(ox,oy-.2,oz-0.3);
+		glScalef(2,.05,.7);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	//Hastes asas
+	glPushMatrix();
+		glColor3ub(140, 140, 140);	//frente esquerda
+		glTranslated(ox-0.7,oy+0.1,oz-0.5);
+		glScalef(0.05,0.6,0.05);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(140, 140, 140);	//frente direita
+		glTranslated(ox+0.7,oy+0.1,oz-0.5);
+		glScalef(0.05,0.6,0.05);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(140, 140, 140);	//tr·s direita
+		glTranslated(ox+0.7,oy+0.1,oz);
+		glScalef(0.05,0.6,0.05);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(140, 140, 140);	//tr·s esquerda
+		glTranslated(ox-0.7,oy+0.1,oz);
+		glScalef(0.05,0.6,0.05);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	
+	//Asas Traseiras
+	glPushMatrix();
+		glColor3ub(140, 0, 0);
+		glTranslated(ox,oy+.3,oz+1);
+		glScalef(0.5,.05,.3);
+		glutSolidCube(1);
+	glPopMatrix();
+	
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
@@ -280,6 +357,29 @@ void DrawPlayer() {
 	}
   	glutPostRedisplay();
 }
+
+void DrawBackground() {
+	glPushMatrix();
+		glColor3ub(color_water[0], color_water[1], color_water[2]);
+		glTranslatef(0,-10,0);
+		glScalef(12,.1,32);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
+		glTranslatef(8,-10,0);
+		glScalef(4,.1,32);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
+		glTranslatef(-8,-10,0);
+		glScalef(4,.1,32);
+		glutSolidCube(1);
+	glPopMatrix();
+	glutPostRedisplay();
+}
+
 
 //Parede (Bloco)
 void DrawWall(float x,float z, bool left) {
