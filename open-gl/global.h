@@ -60,4 +60,24 @@ void slowDown() {
 	}
 }
 
+// Funcao utilizada para desenhar um quadrado com o plano X fixado
+void DrawSquareXPlane(float x, float y_min, float y_max, float z_min, float z_max) {
+	glBegin(GL_QUADS);
+		glVertex3f(x, y_min, z_min);
+		glVertex3f(x, y_min, z_max);
+		glVertex3f(x, y_max, z_max);
+		glVertex3f(x, y_max, z_min);
+	glEnd();
+}
+
+// Funcao utilizada para desenhar um quadrado com o plano Y fixado
+void DrawSquareYPlane(float y, float x_min, float x_max, float z_min, float z_max) {
+	glBegin(GL_QUADS);
+		glVertex3f(x_min, y, z_min);
+		glVertex3f(x_min, y, z_max);
+		glVertex3f(x_max, y, z_max);
+		glVertex3f(x_max, y, z_min);
+	glEnd();
+}
+
 #endif
