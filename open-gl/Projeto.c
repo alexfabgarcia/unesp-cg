@@ -24,7 +24,7 @@
 
 #define ship_largura 3
 #define ship_altura 1
-#define ship_comprimento 1
+#define ship_comprimento 2
 
 #define fuel_station_largura 1
 #define fuel_station_altura 1
@@ -92,6 +92,7 @@ void DrawText(const char *text, int x, int y) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, (int)text[i]);
 }
 
+//Display
 void Display() {
 	//Encontrando dt
 	current_call_time = clock()/ (CLOCKS_PER_SEC / 1000);
@@ -148,9 +149,9 @@ void Display() {
 	for(i=0; i<NUM_OF_SHIPS; i++) {
 		ship[i].z += player_current_speed * deltaTime;		//S = S0 + V * T	
 		ship[i].x += ship[i].direcao * 0.001 * deltaTime;
-		if(ship[i].x < -4.5) {
+		if(ship[i].x < -3.5) {
 			ship[i].direcao = 1;
-		}else if(ship[i].x > 4.5) {
+		}else if(ship[i].x > 3.5) {
 			ship[i].direcao = -1;
 		}else if(paused) {
 			ship[i].direcao = 0;
@@ -358,6 +359,7 @@ void DrawPlayer() {
   	glutPostRedisplay();
 }
 
+//Background em Top View
 void DrawBackground() {
 	glPushMatrix();
 		glColor3ub(color_water[0], color_water[1], color_water[2]);
@@ -379,7 +381,6 @@ void DrawBackground() {
 	glPopMatrix();
 	glutPostRedisplay();
 }
-
 
 //Parede (Bloco)
 void DrawWall(float x,float z, bool left) {
@@ -414,11 +415,78 @@ void DrawWater(float x,float z) {
 //Barco
 void DrawShip(float x, float z) {
 	glPushMatrix();
-		changeColorToWhite();
+		glColor3ub(140, 140, 140);
 		glTranslated(x,-9.7,z);
 		glScalef(ship_largura, ship_altura, ship_comprimento);
 		glutSolidCube(1);
 	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(140, 140, 140);
+		glTranslated(x,-9.7+0.2,z);
+		glScalef(ship_largura+1.4, ship_altura-0.4, ship_comprimento-0.4);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(140, 140, 140);
+		glTranslated(x,-9.7+0.4,z);
+		glScalef(ship_largura+1.8, ship_altura-0.6, ship_comprimento-0.8);
+		glutSolidCube(1);
+	glPopMatrix();
+	//Cabine
+	glPushMatrix();
+		glColor3ub(100, 100, 100);
+		glTranslated(x,-9.7,z);
+		glScalef(ship_largura-0.4, ship_altura+1, ship_comprimento-0.4);
+		glutSolidCube(1);
+	glPopMatrix();
+	//Vidros
+	float aux;
+	for(aux = -1; aux<1; aux+=0.4) {
+		glPushMatrix();
+			glColor3ub(0, 0, 255);
+			glTranslated(x-aux,-9.7+0.7,z);
+			glScalef(0.2, 0.2, ship_comprimento-0.37);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
+	for(aux = -1.4; aux<1.4; aux+=0.4) {
+		glPushMatrix();
+			glColor3ub(0, 0, 255);
+			glTranslated(x-aux,-9.7+0.2,z);
+			glScalef(0.2, 0.2, ship_comprimento+0.1);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
+	glPushMatrix();
+		glColor3ub(0, 0, 255);
+		glTranslated(x-1.8,-9.7+0.2,z);
+		glScalef(0.2, 0.2, ship_comprimento-0.2);
+		glutSolidCube(1);
+	glPopMatrix();
+	glPushMatrix();
+		glColor3ub(0, 0, 255);
+		glTranslated(x+1.8,-9.7+0.2,z);
+		glScalef(0.2, 0.2, ship_comprimento-0.2);
+		glutSolidCube(1);
+	glPopMatrix();
+	//Canhões
+	for(aux = -1; aux<=1; aux++) {
+		glPushMatrix();	//Frente
+			glColor3ub(100, 100, 100);
+			glTranslated(x+aux*1.2,-9.7-0.2,z+1.1);
+			glRotatef(25,-1,10*aux,0);
+			glScalef(0.2, 0.2, ship_comprimento/2);
+			glutSolidCube(1);
+		glPopMatrix();	
+		glPushMatrix();	//Trás
+			glColor3ub(100, 100, 100);
+			glTranslated(x+aux*1.2,-9.7-0.2,z-1.1);
+			glRotatef(25,1,-10*aux,0);
+			glScalef(0.2, 0.2, ship_comprimento/2);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
+	
 	//Debug
 	if(debug_mode) {
 		glPushMatrix();
@@ -463,6 +531,7 @@ void DrawShoot(float x, float y, float z) {
 		glPopMatrix();
 	}
 }
+
 //Estacao de Combustivel
 void DrawFuelStation(float x, float z) {
 	glPushMatrix();
@@ -633,11 +702,16 @@ void keyboard (unsigned char key, int x, int y) {
 	if (!paused) {
 		//Movimento da nave
 		if (key=='d') {
-			player.x += 0.5;
+			if(player.x < 5) {
+				player.x += 0.5;
+			}
 		}
 		if (key=='a') {
-			player.x -= 0.5;
+			if(player.x > -5) {
+				player.x -= 0.5;
+			}
 		}
+		
 		if (key=='w'){
 			//player.y+=1;
 		}
