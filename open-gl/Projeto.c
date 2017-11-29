@@ -204,7 +204,7 @@ void Display() {
 		
 		if (i == REPLACEABLE_WALL_INDEX_BY_BRIDGE && bridge.inGame) {
 			bridge.x = 0;
-			bridge.z = wall_right[i].z;
+			bridge.z = wall_right[i].z + WALL_AND_WATER_LENGTH/2;
 
 			// Colisao do jogador com a ponte
 			if (bridge.inGame && hasCollision(player, bridge)) {
@@ -220,7 +220,8 @@ void Display() {
 			wall_left[i].z = wall_left[most_far_wall_index].z-WALL_AND_WATER_LENGTH;
 
 			if (i == REPLACEABLE_WALL_INDEX_BY_BRIDGE) {
-				wall_right[i].inGame = !(randInRange(0, 1) == 1); // 50% de chance de parede dar lugar a uma ponte
+				//randInRange(0, 1) == 1
+				wall_right[i].inGame = !(true); // 50% de chance de parede dar lugar a uma ponte
 				wall_left[i].inGame = wall_right[i].inGame;
 				bridge.inGame = !(wall_right[i].inGame);
 				printf("Parede %d sera substituida por ponte: %s\n", i, bridge.inGame ? "Sim" : "Nao");
@@ -465,7 +466,7 @@ void DrawWall(float x,float z, bool left, bool bridgeWall) {
 // Ponte
 void DrawBridge(t_aabb_object bridge) {
 	glPushMatrix();
-		glTranslatef(bridge.x, -5, bridge.z + WALL_AND_WATER_LENGTH/2);
+		glTranslatef(bridge.x, -5, bridge.z);
 		glScalef(BRIDGE_WIDTH, 10, WALL_AND_WATER_LENGTH);
 		changeColorToLightGrey();
 		glutSolidCube(1);
@@ -475,14 +476,14 @@ void DrawBridge(t_aabb_object bridge) {
 	if(debug_mode) {
 		glPushMatrix();
 			changeColorToRed();
-			glTranslatef(bridge.x - BRIDGE_WIDTH/2, -10, bridge.z + WALL_AND_WATER_LENGTH);
+			glTranslatef(bridge.x - BRIDGE_WIDTH/2, -10, bridge.z + WALL_AND_WATER_LENGTH/2);
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
 		
 		glPushMatrix();
 			changeColorToRed();
-			glTranslatef(bridge.x + BRIDGE_WIDTH/2, 0, bridge.z);
+			glTranslatef(bridge.x + BRIDGE_WIDTH/2, 0, bridge.z - WALL_AND_WATER_LENGTH/2);
 			glScalef(0.2,0.2,0.2);
 			glutSolidCube(1);
 		glPopMatrix();
@@ -864,6 +865,7 @@ void Pause() {
 	if (paused) {
 		stopSpeed();
 	} else {
+		restoreFuelCounter();
 		resetSpeed();
 	}
 }
