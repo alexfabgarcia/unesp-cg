@@ -108,10 +108,12 @@ int randInRange(int min, int max)
   return min + (int) (rand() / (double) (RAND_MAX + 1) * (max - min + 1));
 }
 
+long time_explosion_bridge = 0;
+
 //Display
 void Display() {	
 	//Encontrando dt
-	current_call_time = clock()/ (CLOCKS_PER_SEC / 1000);
+	current_call_time = clock()/ (CLOCKS_PER_SEC / ONE_SECOND_IN_MILLI);
 	deltaTime = current_call_time - last_call_time;
 	last_call_time = current_call_time;
 	
@@ -159,7 +161,7 @@ void Display() {
 	DrawPlayer();
 
 	//Draw Background
-	DrawBackground();
+	//DrawBackground();
 	
    //Desenha Navios
    int i;
@@ -276,6 +278,7 @@ void Display() {
 				bridge.inGame = false;
 				projectiles[i].inGame = false;
 				puts("Projetil explodiu ponte.");
+				time_explosion_bridge = time_counter;
 				playSoundStoppingOthers(EXPLOSION_SOUND);
 				continue;
 			}
@@ -491,7 +494,11 @@ void DrawBridge(t_aabb_object bridge) {
 //Água
 void DrawWater(float x,float z) {
 	glPushMatrix();
-		glColor3ub(color_water[0], color_water[1], color_water[2]);
+		if (time_explosion_bridge != 0 && (time_counter - time_explosion_bridge) < 1500) {
+			changeColorToDarkPinkRed();
+		} else {
+			glColor3ub(color_water[0], color_water[1], color_water[2]);
+		}
 		glTranslatef(x,-10,z);
 		glScalef(12,.00001,WALL_AND_WATER_LENGTH);
 		glutSolidCube(1.05); // Offset para garantia de sensacao de 

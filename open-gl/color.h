@@ -29,4 +29,8 @@ void changeColorToGlassBlue() {
 	glColor3ub(0, 0, 255);
 }
 
+void changeColorToDarkPinkRed() {
+	glColor3ub(141, 16, 40);
+}
+
 #endif
