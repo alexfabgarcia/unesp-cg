@@ -16,12 +16,19 @@
 #define GAME_OVER_SOUND "sound\\game-over.wav"
 #define EXPLOSION_SOUND "sound\\explosion.wav"
 
+#define Z_POSITION_OUT_OF_SCREEN 16
+
 #define NUM_OF_SHIPS 14
 #define NUM_OF_WALLS 36
 #define NUM_OF_FUEL_STATIONS 4
-#define NUM_OF_FLOOR_TILES 34
+#define NUM_OF_FLOOR_TILES 36
 #define MAX_PROJECTILES_IN_GAME 20
 
+#define WALL_AND_WATER_LENGTH 4
+#define REPLACEABLE_WALL_INDEX_BY_BRIDGE 30
+
+#define BRIDGE_WIDTH 12
+ 
 #define ship_largura 3
 #define ship_altura 1
 #define ship_comprimento 2
@@ -33,6 +40,7 @@
 #define projectile_largura 0.1
 #define projectile_altura 0.1
 #define projectile_comprimento 0.7
+
 
 // Variaveis globais
 // Armazena identificador da janela para que seja possivel fecha-la posteriormente com a tecla 'ESC'
@@ -50,6 +58,8 @@ t_aabb_object floor[NUM_OF_FLOOR_TILES];
 t_aabb_object projectiles[MAX_PROJECTILES_IN_GAME];
 // Estacoes de abastecimento
 t_aabb_object fuel_station[NUM_OF_FUEL_STATIONS];
+// Ponte
+t_aabb_object bridge;
 
 //√çndice dos objetos mais dist√¢ntes (Necess√°rias para o infinite runner)
 int most_far_ship_index;
@@ -68,7 +78,8 @@ void Display();
 void keyboard (unsigned char key, int x, int y);
 void DrawPlayer();
 void DrawBackground();
-void DrawWall(float, float, bool);
+void DrawWall(float, float, bool, bool);
+void DrawBridge(t_aabb_object);
 void DrawWater(float, float);
 void DrawShip(float, float);
 void DrawShoot(float, float, float);
@@ -92,8 +103,13 @@ void DrawText(const char *text, int x, int y) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, (int)text[i]);
 }
 
+int randInRange(int min, int max)
+{
+  return min + (int) (rand() / (double) (RAND_MAX + 1) * (max - min + 1));
+}
+
 //Display
-void Display() {
+void Display() {	
 	//Encontrando dt
 	current_call_time = clock()/ (CLOCKS_PER_SEC / 1000);
 	deltaTime = current_call_time - last_call_time;
@@ -141,6 +157,7 @@ void Display() {
 
 	//Draw Player
 	DrawPlayer();
+
 	//Draw Background
 	DrawBackground();
 	
@@ -178,12 +195,35 @@ void Display() {
 	for(i=0; i<NUM_OF_WALLS; i++) {
 		wall_right[i].z += player_current_speed * deltaTime;
 		wall_left[i].z += player_current_speed * deltaTime;
-		DrawWall(wall_right[i].x, wall_right[i].z, false);
-		DrawWall(wall_left[i].x, wall_left[i].z, true);
+
+		// Desenha parece convencional ou "modo ponte", quando a parede nao esta em jogo
+		DrawWall(wall_right[i].x, wall_right[i].z, false, !(wall_right[i].inGame));
+		DrawWall(wall_left[i].x, wall_left[i].z, true, !(wall_right[i].inGame));
+		
+		if (i == REPLACEABLE_WALL_INDEX_BY_BRIDGE && bridge.inGame) {
+			bridge.x = 0;
+			bridge.z = wall_right[i].z;
+
+			// Colisao do jogador com a ponte
+			if (bridge.inGame && hasCollision(player, bridge)) {
+				doBeforeGameOver();
+			}
+
+			DrawBridge(bridge);
+		}
+
 		//Reseta posiÁıes da parede apÛs sair da tela
-		if(wall_right[i].z >= 16){
-			wall_right[i].z = wall_right[most_far_wall_index].z-3.95;	//sobreposi√ß√£o de 0.05
-			wall_left[i].z = wall_left[most_far_wall_index].z-3.95;	//sobreposi√ß√£o de 0.05
+		if(wall_right[i].z >= Z_POSITION_OUT_OF_SCREEN){
+			wall_right[i].z = wall_right[most_far_wall_index].z-WALL_AND_WATER_LENGTH;
+			wall_left[i].z = wall_left[most_far_wall_index].z-WALL_AND_WATER_LENGTH;
+
+			if (i == REPLACEABLE_WALL_INDEX_BY_BRIDGE) {
+				wall_right[i].inGame = !(randInRange(0, 1) == 1); // 50% de chance de parede dar lugar a uma ponte
+				wall_left[i].inGame = wall_right[i].inGame;
+				bridge.inGame = !(wall_right[i].inGame);
+				printf("Parede %d sera substituida por ponte: %s\n", i, bridge.inGame ? "Sim" : "Nao");
+			}
+
 			most_far_wall_index = i;
 		}
 	}
@@ -193,8 +233,8 @@ void Display() {
 		floor[i].z += player_current_speed * deltaTime;
 		DrawWater(floor[i].x, floor[i].z);
 		//Reseta posiÁıes do ch„o/·gua apÛs sair da tela
-		if(floor[i].z >= 14) {
-			floor[i].z = floor[most_far_floor_tile_index].z-3.95; //sobreposi√ß√£o de 0.05
+		if(floor[i].z >= Z_POSITION_OUT_OF_SCREEN) {
+			floor[i].z = floor[most_far_floor_tile_index].z-WALL_AND_WATER_LENGTH;
 			most_far_floor_tile_index = i;
 		}
 	}
@@ -225,10 +265,21 @@ void Display() {
 			projectiles[i].z -= 0.04 * deltaTime;
 			projectiles[i].lifetime += deltaTime;
 			DrawShoot(projectiles[i].x, projectiles[i].y, projectiles[i].z);
+
 			//DestrÛi projÈtil depois de 10 segundos
 			if(projectiles[i].lifetime/1000 >= 10) {
 				projectiles[i].inGame = false;
 			}
+
+			//Colisao de projÈtil com a ponte
+			if (bridge.inGame && hasCollision(projectiles[i], bridge)) {
+				bridge.inGame = false;
+				projectiles[i].inGame = false;
+				puts("Projetil explodiu ponte.");
+				playSoundStoppingOthers(EXPLOSION_SOUND);
+				continue;
+			}
+
 			//Colisao de projÈtil com os navios
 			int j;
 			for(j=0; j<NUM_OF_SHIPS; j++) {
@@ -263,7 +314,7 @@ void DrawPlayer() {
 	
 	//HÈlice
 	glPushMatrix();
-		glColor3ub(140,140,140);
+		changeColorToLightGrey();
 		glTranslated(player.x,player.y+.3,player.z-0.8);
 		glScalef(.2,.2,.1);
 		glutSolidTorus(0.7,1,50,50);
@@ -271,19 +322,19 @@ void DrawPlayer() {
 	
 	//Corpo
 	glPushMatrix();
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(player.x,player.y+.1,player.z);
 		glScalef(.15,.15,1.7);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();	//Frente
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(player.x,player.y+.1,player.z-0.2);
 		glScalef(.2,.2,1);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();	//Frente
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(player.x,player.y+.1,player.z-0.2);
 		glScalef(.3,.3,.7);
 		glutSolidCube(1);
@@ -307,25 +358,25 @@ void DrawPlayer() {
 	
 	//Hastes asas
 	glPushMatrix();
-		glColor3ub(140, 140, 140);	//frente esquerda
+		changeColorToLightGrey();	//frente esquerda
 		glTranslated(player.x-0.7,player.y+0.1,player.z-0.5);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(140, 140, 140);	//frente direita
+		changeColorToLightGrey();	//frente direita
 		glTranslated(player.x+0.7,player.y+0.1,player.z-0.5);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(140, 140, 140);	//tr·s direita
+		changeColorToLightGrey();	//tr·s direita
 		glTranslated(player.x+0.7,player.y+0.1,player.z);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(140, 140, 140);	//tr·s esquerda
+		changeColorToLightGrey();	//tr·s esquerda
 		glTranslated(player.x-0.7,player.y+0.1,player.z);
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
@@ -383,21 +434,57 @@ void DrawBackground() {
 }
 
 //Parede (Bloco)
-void DrawWall(float x,float z, bool left) {
+void DrawWall(float x,float z, bool left, bool bridgeWall) {
 	float x_pos = (left ? 1 : -1) * 0.5;
 	glPushMatrix();
 		glTranslatef(x,-5,z);
-		glScalef(4,10,4);
+		glScalef(4, 10, WALL_AND_WATER_LENGTH);
 		
-		// Desenha parede marrom com topo verde para dar efeito de grama
-		glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
-		DrawSquareXPlane(x_pos, -0.5, .45, 0, 1);
-		glColor3ub(color_grass[0], color_grass[1], color_grass[2]);
-		DrawSquareXPlane(x_pos, 0.44, .5, 0, 1);
+		if (bridgeWall) {
+			changeColorToLightGrey();
+		} else {
+			// Desenha parede marrom com topo verde para dar efeito de grama
+			glColor3ub(color_wall[0], color_wall[1], color_wall[2]);
+		}
+		DrawSquareXPlane(x_pos, -0.5, .45, 0, 1.05); // Offset para garantia de sensacao de continuidade
+		
+		if (!bridgeWall) {
+			glColor3ub(color_grass[0], color_grass[1], color_grass[2]);
+		}
+		DrawSquareXPlane(x_pos, 0.44, .5, 0, 1.05); // Offset para garantia de sensacao de continuidade
 
 		// Desenha grama
-		DrawSquareYPlane(0.5, .5, -0.5, 0, 1);
+		DrawSquareYPlane(0.5, .5, -0.5, 0, 1.05);
 	glPopMatrix();
+	glutPostRedisplay();
+}
+
+// Ponte
+void DrawBridge(t_aabb_object bridge) {
+	glPushMatrix();
+		glTranslatef(bridge.x, -5, bridge.z + WALL_AND_WATER_LENGTH/2);
+		glScalef(BRIDGE_WIDTH, 10, WALL_AND_WATER_LENGTH);
+		changeColorToLightGrey();
+		glutSolidCube(1);
+	glPopMatrix();
+
+	//Debug
+	if(debug_mode) {
+		glPushMatrix();
+			changeColorToRed();
+			glTranslatef(bridge.x - BRIDGE_WIDTH/2, -10, bridge.z + WALL_AND_WATER_LENGTH);
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+		
+		glPushMatrix();
+			changeColorToRed();
+			glTranslatef(bridge.x + BRIDGE_WIDTH/2, 0, bridge.z);
+			glScalef(0.2,0.2,0.2);
+			glutSolidCube(1);
+		glPopMatrix();
+	}
+
 	glutPostRedisplay();
 }
 
@@ -406,8 +493,8 @@ void DrawWater(float x,float z) {
 	glPushMatrix();
 		glColor3ub(color_water[0], color_water[1], color_water[2]);
 		glTranslatef(x,-10,z);
-		glScalef(12,.00001,4);
-		glutSolidCube(1);
+		glScalef(12,.00001,WALL_AND_WATER_LENGTH);
+		glutSolidCube(1.05); // Offset para garantia de sensacao de 
 	glPopMatrix();
 	glutPostRedisplay();
 }
@@ -415,26 +502,26 @@ void DrawWater(float x,float z) {
 //Barco
 void DrawShip(float x, float z) {
 	glPushMatrix();
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(x,-9.7,z);
 		glScalef(ship_largura, ship_altura, ship_comprimento);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(x,-9.7+0.2,z);
 		glScalef(ship_largura+1.4, ship_altura-0.4, ship_comprimento-0.4);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(140, 140, 140);
+		changeColorToLightGrey();
 		glTranslated(x,-9.7+0.4,z);
 		glScalef(ship_largura+1.8, ship_altura-0.6, ship_comprimento-0.8);
 		glutSolidCube(1);
 	glPopMatrix();
 	//Cabine
 	glPushMatrix();
-		glColor3ub(100, 100, 100);
+		changeColorToDarkGrey();
 		glTranslated(x,-9.7,z);
 		glScalef(ship_largura-0.4, ship_altura+1, ship_comprimento-0.4);
 		glutSolidCube(1);
@@ -443,7 +530,7 @@ void DrawShip(float x, float z) {
 	float aux;
 	for(aux = -1; aux<1; aux+=0.4) {
 		glPushMatrix();
-			glColor3ub(0, 0, 255);
+			changeColorToGlassBlue();
 			glTranslated(x-aux,-9.7+0.7,z);
 			glScalef(0.2, 0.2, ship_comprimento-0.37);
 			glutSolidCube(1);
@@ -451,20 +538,20 @@ void DrawShip(float x, float z) {
 	}
 	for(aux = -1.4; aux<1.4; aux+=0.4) {
 		glPushMatrix();
-			glColor3ub(0, 0, 255);
+			changeColorToGlassBlue();
 			glTranslated(x-aux,-9.7+0.2,z);
 			glScalef(0.2, 0.2, ship_comprimento+0.1);
 			glutSolidCube(1);
 		glPopMatrix();
 	}
 	glPushMatrix();
-		glColor3ub(0, 0, 255);
+		changeColorToGlassBlue();
 		glTranslated(x-1.8,-9.7+0.2,z);
 		glScalef(0.2, 0.2, ship_comprimento-0.2);
 		glutSolidCube(1);
 	glPopMatrix();
 	glPushMatrix();
-		glColor3ub(0, 0, 255);
+		changeColorToGlassBlue();
 		glTranslated(x+1.8,-9.7+0.2,z);
 		glScalef(0.2, 0.2, ship_comprimento-0.2);
 		glutSolidCube(1);
@@ -472,14 +559,14 @@ void DrawShip(float x, float z) {
 	//Canhıes
 	for(aux = -1; aux<=1; aux++) {
 		glPushMatrix();	//Frente
-			glColor3ub(100, 100, 100);
+			changeColorToDarkGrey();
 			glTranslated(x+aux*1.2,-9.7-0.2,z+1.1);
 			glRotatef(25,-1,10*aux,0);
 			glScalef(0.2, 0.2, ship_comprimento/2);
 			glutSolidCube(1);
 		glPopMatrix();	
 		glPushMatrix();	//Tr·s
-			glColor3ub(100, 100, 100);
+			changeColorToDarkGrey();
 			glTranslated(x+aux*1.2,-9.7-0.2,z-1.1);
 			glRotatef(25,1,-10*aux,0);
 			glScalef(0.2, 0.2, ship_comprimento/2);
@@ -808,18 +895,27 @@ void Initializate() {
 	for(i=0; i<NUM_OF_WALLS; i++) {
 		//Inicializa posi√ßposiÁıes£o das paredes da direita
 		wall_right[i].x = 8;
-		wall_right[i].z = (-i*4)+16;
+		wall_right[i].z = (-i*WALL_AND_WATER_LENGTH)+Z_POSITION_OUT_OF_SCREEN;
 		//Inicializa posiÁıesß√£o das paredes da esquerda
 		wall_left[i].x = -8;
-		wall_left[i].z = (-i*4)+16;
+		wall_left[i].z = (-i*WALL_AND_WATER_LENGTH)+Z_POSITION_OUT_OF_SCREEN;
+		wall_right[i].inGame = true;
+		wall_left[i].inGame = true;
 	}
 	most_far_wall_index = NUM_OF_WALLS-1;
+
+	// Ponte
+	bridge.x = 0;
+	bridge.z = 0;
+	bridge.inGame = false;
+	bridge.width = BRIDGE_WIDTH;
+	bridge.length = WALL_AND_WATER_LENGTH;
 	
 	//Floor
 	for(i=0; i<NUM_OF_FLOOR_TILES; i++) {
 		//Inicializa posiÁıes dos tiles de ¡gua no ch„o
 		floor[i].x = 0;
-		floor[i].z = (-i*4)+14;
+		floor[i].z = (-i*WALL_AND_WATER_LENGTH)+Z_POSITION_OUT_OF_SCREEN;
 	}
 	most_far_floor_tile_index = NUM_OF_FLOOR_TILES-1;
 	
@@ -849,7 +945,8 @@ void Initializate() {
 
 int main(int argc,char **argv) {
 	// Adiciona caracteristica de aleatoriedade atrelada com o tempo
-	// srand(time(NULL));
+	//srand(time(NULL));
+	
 	Initializate();
 	
 	glutInit(&argc, argv);

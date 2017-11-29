@@ -1,7 +1,7 @@
 [Project]
 FileName=Projeto.dev
 Name=Projeto1
-UnitCount=5
+UnitCount=7
 Type=1
 Ver=2
 ObjFiles=
@@ -99,4 +99,24 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 CompileCpp=1
+
+[Unit6]
+FileName=collision.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit7]
+FileName=color.h
+CompileCpp=1
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
 

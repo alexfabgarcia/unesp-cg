@@ -7,5 +7,7 @@ void stopAllPlayingSongs() {
 
 void playSoundStoppingOthers(LPCTSTR pszSound) {
 	stopAllPlayingSongs();
-	PlaySound(pszSound, NULL, SND_ASYNC|SND_FILENAME);
+	if (!paused) {
+		PlaySound(pszSound, NULL, SND_ASYNC|SND_FILENAME);
+	}
 }
