@@ -1,5 +1,6 @@
 #define HELICOPTER_SCORE_INCREMENT 60
 #define SHIP_SCORE_INCREMENT 30
+#define BRIDGE_SCORE_INCREMENT 50
 #define FUEL_SCORE_INCREMENT 10
 #define RECORD_FILE "recorde.txt"
 
@@ -30,6 +31,10 @@ long getScoreBySpeed(long score) {
 
 void shootDownShip() {
 	playerScore += getScoreBySpeed(SHIP_SCORE_INCREMENT);
+}
+
+void shootDownBridge() {
+	playerScore += getScoreBySpeed(BRIDGE_SCORE_INCREMENT);
 }
 
 void shootDownHelicopter() {

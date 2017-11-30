@@ -41,7 +41,6 @@
 #define projectile_altura 0.1
 #define projectile_comprimento 0.7
 
-
 // Variaveis globais
 // Armazena identificador da janela para que seja possivel fecha-la posteriormente com a tecla 'ESC'
 int windowId;
@@ -183,12 +182,16 @@ void Display() {
 			most_far_ship_index = i;
 		}
 		
-		if(ship[i].inGame == true) {
-			DrawShip(ship[i].x, ship[i].z);
-
-			//Colisão player com navio
-			if (hasCollision(player, ship[i])) {
-				doBeforeGameOver();
+		if(ship[i].inGame) {
+			if (bridge.inGame && hasCollision(ship[i], bridge)) {
+				ship[i].inGame = false;
+			} else {
+				DrawShip(ship[i].x, ship[i].z);
+			
+				//Colisão player com navio
+				if (hasCollision(player, ship[i])) {
+					doBeforeGameOver();
+				}	
 			}
 		}
 	}
@@ -220,11 +223,14 @@ void Display() {
 			wall_left[i].z = wall_left[most_far_wall_index].z-WALL_AND_WATER_LENGTH;
 
 			if (i == REPLACEABLE_WALL_INDEX_BY_BRIDGE) {
-				//randInRange(0, 1) == 1
-				wall_right[i].inGame = !(true); // 50% de chance de parede dar lugar a uma ponte
-				wall_left[i].inGame = wall_right[i].inGame;
-				bridge.inGame = !(wall_right[i].inGame);
-				printf("Parede %d sera substituida por ponte: %s\n", i, bridge.inGame ? "Sim" : "Nao");
+				if (randInRange(0, 1) == 1) { // 50% de chance de parede dar lugar a uma ponte
+					wall_right[i].inGame = false; 
+					wall_left[i].inGame = wall_right[i].inGame;
+					bridge.inGame = !(wall_right[i].inGame);
+					printf("Parede %d sera substituida por ponte: %s\n", i, bridge.inGame ? "Sim" : "Nao");
+				} else {
+					
+				}
 			}
 
 			most_far_wall_index = i;
@@ -270,34 +276,51 @@ void Display() {
 			DrawShoot(projectiles[i].x, projectiles[i].y, projectiles[i].z);
 
 			//Destrói projétil depois de 10 segundos
-			if(projectiles[i].lifetime/1000 >= 10) {
+			if(projectiles[i].lifetime / ONE_SECOND_IN_MILLI >= 10) {
 				projectiles[i].inGame = false;
-			}
-
-			//Colisao de projétil com a ponte
-			if (bridge.inGame && hasCollision(projectiles[i], bridge)) {
-				bridge.inGame = false;
-				projectiles[i].inGame = false;
-				puts("Projetil explodiu ponte.");
-				time_explosion_bridge = time_counter;
-				playSoundStoppingOthers(EXPLOSION_SOUND);
-				continue;
-			}
-
-			//Colisao de projétil com os navios
-			int j;
-			for(j=0; j<NUM_OF_SHIPS; j++) {
-				if(ship[j].inGame == true && hasCollision(projectiles[i], ship[j])) {
-					//destroi projétil
+			} else {
+				//Colisao de projétil com a ponte
+				if (bridge.inGame && hasCollision(projectiles[i], bridge)) {
+					bridge.inGame = false;
 					projectiles[i].inGame = false;
-					//destroi navio
-					ship[j].inGame = false;
-					
-					// Abate o navio
-					shootDownShip();
+					puts("Projetil explodiu ponte.");
+					time_explosion_bridge = time_counter;
+					shootDownBridge();
 					playSoundStoppingOthers(EXPLOSION_SOUND);
-					
-					break;
+					continue;
+				}
+
+				//Colisao de projétil com os navios
+				int j;
+				for(j=0; j<NUM_OF_SHIPS; j++) {
+					if(ship[j].inGame && hasCollision(projectiles[i], ship[j])) {
+						//destroi projétil
+						projectiles[i].inGame = false;
+						//destroi navio
+						ship[j].inGame = false;
+						
+						// Abate o navio
+						shootDownShip();
+						playSoundStoppingOthers(EXPLOSION_SOUND);
+						
+						break;
+					}
+				}
+
+				//Colisao de projétil com os estação de abastecimento
+				for(j = 0; j < NUM_OF_FUEL_STATIONS; j++) {
+					if (fuel_station[j].inGame && hasCollision(projectiles[i], fuel_station[j])) {
+						//destroi projétil
+						projectiles[i].inGame = false;
+						//destroi estação de abastecimento
+						fuel_station[j].inGame = false;
+						
+						// Abate a estação de abastecimento
+						shootDownFuelStation();
+						playSoundStoppingOthers(EXPLOSION_SOUND);
+						
+						break;
+					}
 				}
 			}
 		}
@@ -385,7 +408,6 @@ void DrawPlayer() {
 		glScalef(0.05,0.6,0.05);
 		glutSolidCube(1);
 	glPopMatrix();
-	
 	
 	//Asas Traseiras
 	glPushMatrix();
@@ -629,11 +651,46 @@ void DrawShoot(float x, float y, float z) {
 
 //Estacao de Combustivel
 void DrawFuelStation(float x, float z) {
+	// Base
 	glPushMatrix();
-		changeColorToRed();
+		changeColorToWhite();
 		glTranslated(x,-9.7,z);
 		glScalef(fuel_station_largura, fuel_station_altura, fuel_station_comprimento);
 		glutSolidCube(1);
+	glPopMatrix();
+	
+	// Efeito borda
+	glPushMatrix();
+		changeColorToWhite();
+		glTranslated(x,-9.7,z-0.2);
+		glScalef(fuel_station_largura*0.8, fuel_station_altura, fuel_station_comprimento);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	// Efeito base
+	glPushMatrix();
+		changeColorToWhite();
+		glTranslated(x, -9.7, z+fuel_station_comprimento/2);
+		glScalef(fuel_station_largura*1.2, fuel_station_altura, .2);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	// "Vidro" da estação de combustível
+	glPushMatrix();
+		changeColorToGlassBlue();
+		glTranslated(x, -9.6, z-1);
+		glScalef(0.8, 1, 0.8);
+		glutSolidCube(1);
+	glPopMatrix();
+	
+	// Desenha "F" de "Fuel"
+	glPushMatrix();
+		changeColorToRed();
+		glTranslated(x, -9.6, z);
+		glScalef(0.8, 1, 0.8);
+        DrawSquareYPlane(.6, -.3, -.15, .8, 1.8);
+        DrawSquareYPlane(.6, -.15, .3, .8, 1);
+        DrawSquareYPlane(.6, -.15, .3, 1.2, 1.4);
 	glPopMatrix();
 	//Debug
 	if(debug_mode) {
@@ -892,7 +949,7 @@ void Initializate() {
 	for(i=0; i<NUM_OF_SHIPS; i++) {
 		//Inicializa posições dos navios
 		ship[i].x = rand()% 10 - 5;
-		ship[i].z = -i*10;
+		ship[i].z = (-i-1)*10;
 		ship[i].direcao = (rand() % 2 - 1 >= 0) ? 1:-1;
 		ship[i].inGame = true;
 		ship[i].width = ship_largura;
@@ -939,7 +996,7 @@ void Initializate() {
 	//Inicializa posicoes das estacoes de abastecimento
 	for (i=0; i<NUM_OF_FUEL_STATIONS; i++) {	
 		fuel_station[i].x = rand()%10 - 5;
-		fuel_station[i].z = (-i-1)*25;
+		fuel_station[i].z = (-i-2) * 25; // Atribui uma distância inicial dada a aletoriedade por tempo "srand"
 		fuel_station[i].inGame = true;
 		fuel_station[i].width = fuel_station_largura;
 		fuel_station[i].length = fuel_station_comprimento;
@@ -953,8 +1010,8 @@ void Initializate() {
 }
 
 int main(int argc,char **argv) {
-	// Adiciona caracteristica de aleatoriedade atrelada com o tempo
-	//srand(time(NULL));
+	// Adiciona caracteristica de aleatoriedade atrelada com o tempo (semente)
+	srand(time(NULL));
 	
 	Initializate();
 	
